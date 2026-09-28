@@ -207,6 +207,80 @@ class SettingsPage extends ConsumerWidget {
         ),
       ),
       const SizedBox(height: 18),
+      Text('词条显示设置', style: TextStyle(color: muted)),
+      const SizedBox(height: 10),
+      Card(
+        child: Column(
+          children: [
+            SwitchListTile(
+              title: const Text('拼音'),
+              value: settings.showPinyin,
+              onChanged: (value) => controller.setSettings(
+                (current) => current.copyWith(showPinyin: value),
+              ),
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              title: const Text('注音符号'),
+              subtitle: const Text('例如：汉 ㄏㄢˋ'),
+              value: settings.showZhuyin,
+              onChanged: (value) => controller.setSettings(
+                (current) => current.copyWith(showZhuyin: value),
+              ),
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              title: const Text('五笔 86'),
+              subtitle: const Text('显示单字全码'),
+              value: settings.showWubi,
+              onChanged: (value) => controller.setSettings(
+                (current) => current.copyWith(showWubi: value),
+              ),
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              title: const Text('部首'),
+              value: settings.showRadical,
+              onChanged: (value) => controller.setSettings(
+                (current) => current.copyWith(showRadical: value),
+              ),
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              title: const Text('笔画数'),
+              value: settings.showStrokeCount,
+              onChanged: (value) => controller.setSettings(
+                (current) => current.copyWith(showStrokeCount: value),
+              ),
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              title: const Text('字形结构'),
+              value: settings.showStructure,
+              onChanged: (value) => controller.setSettings(
+                (current) => current.copyWith(showStructure: value),
+              ),
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              title: const Text('Unicode 编码'),
+              value: settings.showUnicode,
+              onChanged: (value) => controller.setSettings(
+                (current) => current.copyWith(showUnicode: value),
+              ),
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              title: const Text('笔顺'),
+              value: settings.showStrokeOrder,
+              onChanged: (value) => controller.setSettings(
+                (current) => current.copyWith(showStrokeOrder: value),
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 18),
       Text('阅读与界面', style: TextStyle(color: muted)),
       const SizedBox(height: 10),
       Card(
@@ -292,6 +366,13 @@ class SettingsPage extends ConsumerWidget {
       const SizedBox(height: 16),
       Card(
           child: Column(children: [
+        SwitchListTile(
+            title: const Text('全局点击查字'),
+            subtitle: const Text('开启后可点击正文汉字快速查询；设置页默认加入白名单，在此页点击汉字不会触发查询'),
+            value: settings.globalHanLookupEnabled,
+            onChanged: (value) => controller
+                .setSettings((s) => s.copyWith(globalHanLookupEnabled: value))),
+        const Divider(height: 1),
         SwitchListTile(
             title: const Text('减少装饰'),
             subtitle: const Text('隐藏非必要的山水与竹叶装饰'),
@@ -709,7 +790,10 @@ class SearchHistoryPage extends ConsumerWidget {
         appBar: AppBar(title: const Text('查询历史')),
         body: ref.watch(searchHistoryControllerProvider).when(
               data: (values) => values.isEmpty
-                  ? const EmptyState(title: '暂无查询历史', message: '从首页查询汉字后会记录在这里')
+                  ? const EmptyState(
+                      title: '暂无查询历史',
+                      message: '从首页查询汉字或词语后会记录在这里',
+                    )
                   : ResponsiveContent(
                       maxWidth: 700,
                       child: ListView.separated(
@@ -717,12 +801,17 @@ class SearchHistoryPage extends ConsumerWidget {
                         itemCount: values.length,
                         separatorBuilder: (_, __) => const Divider(height: 1),
                         itemBuilder: (context, index) => ListTile(
-                          leading: CircleAvatar(child: Text(values[index])),
+                          leading: CircleAvatar(
+                            child: Text(values[index].characters.first),
+                          ),
                           title: Text(values[index]),
                           subtitle: Text('第 ${index + 1} 条 · 最近优先'),
                           trailing: const Icon(Icons.chevron_right),
-                          onTap: () =>
-                              context.push(AppRoutes.character(values[index])),
+                          onTap: () => context.push(
+                            values[index].characters.length == 1
+                                ? AppRoutes.character(values[index])
+                                : AppRoutes.word(values[index]),
+                          ),
                         ),
                       ),
                     ),
@@ -806,7 +895,7 @@ class _InformationPageState extends State<InformationPage> {
                   child: Column(children: [
                     _AboutRow('产品定位', '汉字工具、学习训练与传统文化阅读'),
                     Divider(),
-                    _AboutRow('当前规模', '21,056 个汉字；默认 52,279 首诗词'),
+                    _AboutRow('当前规模', '21,056 个汉字；默认 51,394 首完整诗词'),
                     Divider(),
                     _AboutRow('隐私', '查询、收藏、历史与偏好仅保存在本机'),
                     Divider(),

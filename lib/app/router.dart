@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/culture/culture_pages.dart';
+import '../features/culture/poetry_author_page.dart';
 import '../features/dictionary/dictionary_pages.dart';
+import '../features/dictionary/word_detail_page.dart';
 import '../features/home/home_page.dart';
 import '../features/index_search/index_search_page.dart';
 import '../features/learning/learning_pages.dart';
 import '../features/profile/profile_pages.dart';
+import '../core/widgets/global_han_lookup.dart';
 import 'app_routes.dart';
 import 'app_shell.dart';
 
@@ -42,6 +45,11 @@ final appRouter = GoRouter(
         parentNavigatorKey: rootNavigatorKey,
         builder: (_, state) =>
             CharacterDetailPage(value: state.pathParameters['value']!)),
+    GoRoute(
+        path: AppRoutes.wordPattern,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (_, state) =>
+            WordDetailPage(value: state.pathParameters['value']!)),
     GoRoute(
         path: AppRoutes.indexPattern,
         parentNavigatorKey: rootNavigatorKey,
@@ -79,13 +87,26 @@ final appRouter = GoRouter(
         builder: (_, state) =>
             PoetryDetailPage(id: state.pathParameters['id']!)),
     GoRoute(
+        path: AppRoutes.poetryAuthorPattern,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (_, state) => PoetryAuthorPage(
+              dynasty: state.pathParameters['dynasty']!,
+              author: state.pathParameters['author']!,
+            )),
+    GoRoute(
+        path: AppRoutes.solarTermPattern,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (_, state) =>
+            SolarTermDetailPage(name: state.pathParameters['name']!)),
+    GoRoute(
         path: AppRoutes.settingsPattern,
         parentNavigatorKey: rootNavigatorKey,
         redirect: (_, state) => state.pathParameters['kind'] == 'display'
             ? AppRoutes.settingsGeneral
             : null,
-        builder: (_, state) =>
-            SettingsPage(kind: state.pathParameters['kind']!)),
+        builder: (_, state) => GlobalHanLookupBlocker(
+              child: SettingsPage(kind: state.pathParameters['kind']!),
+            )),
     GoRoute(
         path: AppRoutes.informationPattern,
         parentNavigatorKey: rootNavigatorKey,

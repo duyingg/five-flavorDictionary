@@ -26,11 +26,52 @@ Future<void> pumpUntilFound(
 }
 
 class _IndexTestRepository implements DictionaryRepository {
-  final entries = List.generate(10, (index) {
+  final entries = List.generate(300, (index) {
+    const initials = [
+      'b',
+      'p',
+      'm',
+      'f',
+      'd',
+      't',
+      'n',
+      'l',
+      'g',
+      'k',
+      'h',
+      'j',
+      'q',
+      'x',
+      'r',
+      'z',
+      'c',
+      's',
+      'y',
+      'w',
+    ];
+    const finals = [
+      'a',
+      'o',
+      'e',
+      'ai',
+      'ei',
+      'ao',
+      'ou',
+      'an',
+      'en',
+      'ang',
+      'eng',
+      'i',
+      'ia',
+      'ie',
+      'iao',
+    ];
     final character = String.fromCharCode(0x4e00 + index);
     return ChineseEntry(
       character: character,
-      pinyin: const ['zì'],
+      pinyin: [
+        '${initials[index % initials.length]}${finals[index ~/ initials.length]}',
+      ],
       radical: character,
       strokeCount: index + 1,
       structure: '独体',
@@ -44,7 +85,22 @@ class _IndexTestRepository implements DictionaryRepository {
   Future<List<ChineseEntry>> all() async => entries;
 
   @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  Future<ChineseEntry?> findExactCharacter(String character) async =>
+      entries.where((entry) => entry.character == character).firstOrNull;
+
+  @override
+  Future<Map<String, String>> primaryPinyinFor(
+    Iterable<String> characters,
+  ) async =>
+      {
+        for (final character in characters)
+          character: entries
+                  .where((entry) => entry.character == character)
+                  .firstOrNull
+                  ?.pinyin
+                  .firstOrNull ??
+              '',
+      };
 }
 
 class _CharacterTestRepository extends _IndexTestRepository {
@@ -57,6 +113,63 @@ class _CharacterTestRepository extends _IndexTestRepository {
   @override
   Future<ChineseEntry?> findExactCharacter(String character) async =>
       character == entry.character ? entry : null;
+}
+
+class _HomeWordDictionaryRepository implements DictionaryRepository {
+  static const entries = [
+    ChineseEntry(
+      character: '苹',
+      pinyin: ['píng'],
+      radical: '艹',
+      strokeCount: 8,
+      structure: '上下',
+      unicode: 'test-苹',
+      senses: [],
+      sourceId: 'test',
+    ),
+    ChineseEntry(
+      character: '果',
+      pinyin: ['guǒ'],
+      radical: '木',
+      strokeCount: 8,
+      structure: '独体',
+      unicode: 'test-果',
+      senses: [],
+      sourceId: 'test',
+    ),
+  ];
+
+  @override
+  Future<List<ChineseEntry>> all() async => entries;
+
+  @override
+  Future<ChineseEntry?> findExactCharacter(String character) async =>
+      entries.where((entry) => entry.character == character).firstOrNull;
+
+  @override
+  Future<Map<String, String>> primaryPinyinFor(
+    Iterable<String> characters,
+  ) async =>
+      {
+        for (final character in characters)
+          character: entries
+                  .where((entry) => entry.character == character)
+                  .firstOrNull
+                  ?.pinyin
+                  .firstOrNull ??
+              '',
+      };
+}
+
+class _HomeWordRepository implements WordRepository {
+  @override
+  Future<WordEntry?> findExact(String word) async => word == '苹果'
+      ? const WordEntry(
+          word: '苹果',
+          pinyin: 'píng guǒ',
+          definition: '苹果树的果实。',
+        )
+      : null;
 }
 
 void main() {
@@ -73,9 +186,10 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('隐私政策提示'), findsOneWidget);
+    expect(find.text('不同意并退出'), findsOneWidget);
     expect(find.text('查看完整政策'), findsOneWidget);
     await tester.tap(find.text('同意并继续'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('隐私政策提示'), findsNothing);
     final preferences = await SharedPreferences.getInstance();
@@ -91,13 +205,26 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('今日汉字'), findsOneWidget);
     await tester.tap(find.text('文化').last);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
     expect(find.text('诸子百家'), findsOneWidget);
     await tester.tap(find.text('我的').last);
     await tester.pumpAndSettle();
     expect(find.text('本产品无内购、无会员'), findsOneWidget);
     await tester.tap(find.text('设置'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('汉字查询偏好'));
+    await tester.pumpAndSettle();
+    expect(find.text('汉字查询偏好'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('全局点击查字'),
+      260,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('全局点击查字'), findsOneWidget);
+    expect(
+      find.text('开启后可点击正文汉字快速查询；设置页默认加入白名单，在此页点击汉字不会触发查询'),
+      findsOneWidget,
+    );
     await tester.scrollUntilVisible(
       find.text('侧边栏宽度'),
       260,
@@ -108,21 +235,40 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('首页拒绝词语并给出内联错误', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: DictionaryApp()));
+  testWidgets('首页支持词语查询并进入词语详情', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          dictionaryRepositoryProvider.overrideWithValue(
+            _HomeWordDictionaryRepository(),
+          ),
+          wordRepositoryProvider.overrideWithValue(_HomeWordRepository()),
+        ],
+        child: const DictionaryApp(),
+      ),
+    );
     await tester.pump(const Duration(seconds: 1));
     await tester.tap(find.text('首页').last);
     await tester.pump(const Duration(seconds: 1));
     await tester.enterText(find.byKey(const Key('home-search')), '苹果');
     await tester.testTextInput.receiveAction(TextInputAction.search);
-    await tester.pump();
-    expect(find.text('首页仅支持查询单个汉字'), findsOneWidget);
+    await pumpUntilFound(tester, find.text('词语释义'));
+    expect(find.text('词语详情'), findsOneWidget);
+    expect(find.text('词语释义'), findsOneWidget);
+    await tester.tap(find.byTooltip('返回首页'));
+    await tester.pumpAndSettle();
+    expect(find.text('五味字典'), findsOneWidget);
   });
 
   testWidgets('拼音索引切换简繁后保持滚动位置', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
+      ProviderScope(
+        overrides: [
+          dictionaryRepositoryProvider.overrideWithValue(
+            _IndexTestRepository(),
+          ),
+        ],
+        child: const MaterialApp(
           home: IndexSearchPage(type: IndexSearchType.pinyin),
         ),
       ),
@@ -207,9 +353,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('繁体字：漢'), findsWidgets);
-    expect(find.text('简体字：汉'), findsNothing);
-    expect(find.text('简繁同形'), findsNothing);
+    expect(
+      find.textContaining('繁体字：漢', findRichText: true),
+      findsWidgets,
+    );
+    expect(
+      find.textContaining('简体字：汉', findRichText: true),
+      findsNothing,
+    );
+    expect(
+      find.textContaining('简繁同形', findRichText: true),
+      findsNothing,
+    );
   });
 
   testWidgets('汉字详情对同形字标注简繁同形', (tester) async {
@@ -235,9 +390,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('简繁同形'), findsOneWidget);
-    expect(find.textContaining('简体字：'), findsNothing);
-    expect(find.textContaining('繁体字：'), findsNothing);
+    expect(
+      find.textContaining('简繁同形', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('简体字：', findRichText: true),
+      findsNothing,
+    );
+    expect(
+      find.textContaining('繁体字：', findRichText: true),
+      findsNothing,
+    );
   });
 
   testWidgets('320×568 小屏首页不溢出且我的保持竖排', (tester) async {

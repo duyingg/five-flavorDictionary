@@ -10,7 +10,6 @@ import '../../app/app_routes.dart';
 import '../../core/language/pinyin_utils.dart';
 import '../../core/widgets/committed_slider.dart';
 import '../../core/widgets/common_widgets.dart';
-import '../../core/widgets/tappable_han_text.dart';
 import '../domain/models.dart';
 import '../dictionary/stroke_order_view.dart';
 import 'index_catalog.dart';
@@ -25,29 +24,6 @@ extension IndexSearchTypeText on IndexSearchType {
         IndexSearchType.difficult => '难检字索引',
         IndexSearchType.rhyme => '韵脚查询',
       };
-}
-
-String? _topVisibleAnchor(Map<String, GlobalKey> keys, GlobalKey viewportKey) =>
-    topVisibleHanAnchor(keys, viewportKey);
-
-String? _nearestVisible(
-    String anchor, List<String> oldValues, List<String> newValues) {
-  if (newValues.contains(anchor)) return anchor;
-  final oldIndex = oldValues.indexOf(anchor);
-  if (oldIndex < 0) return newValues.firstOrNull;
-  for (var index = oldIndex - 1; index >= 0; index--) {
-    if (newValues.contains(oldValues[index])) return oldValues[index];
-  }
-  for (var index = oldIndex + 1; index < oldValues.length; index++) {
-    if (newValues.contains(oldValues[index])) return oldValues[index];
-  }
-  return newValues.firstOrNull;
-}
-
-void _restoreAnchor(Map<String, GlobalKey> keys, String anchor) {
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    restoreHanAnchor(keys, anchor);
-  });
 }
 
 void _jumpToLazySection<T>({
@@ -107,12 +83,35 @@ class IndexSearchPage extends ConsumerStatefulWidget {
 
 class _IndexSearchPageState extends ConsumerState<IndexSearchPage> {
   late final Future<List<ChineseEntry>> _entriesFuture;
+  List<ChineseEntry>? _catalogSource;
+  IndexCatalog? _catalog;
+  ScriptDisplay? _catalogDisplay;
+  int? _catalogMaxLevel;
   var _sidebarVisible = true;
 
   @override
   void initState() {
     super.initState();
     _entriesFuture = ref.read(dictionaryRepositoryProvider).all();
+  }
+
+  IndexCatalog _catalogFor(
+    List<ChineseEntry> source,
+    AppSettings settings,
+  ) {
+    if (identical(source, _catalogSource) &&
+        settings.scriptDisplay == _catalogDisplay &&
+        settings.maxCharacterLevel == _catalogMaxLevel) {
+      return _catalog!;
+    }
+    _catalogSource = source;
+    _catalogDisplay = settings.scriptDisplay;
+    _catalogMaxLevel = settings.maxCharacterLevel;
+    return _catalog = IndexCatalog(
+      source,
+      display: settings.scriptDisplay,
+      maxLevel: settings.maxCharacterLevel,
+    );
   }
 
   @override
@@ -147,11 +146,7 @@ class _IndexSearchPageState extends ConsumerState<IndexSearchPage> {
               message: '请检查本地汉字数据后重试',
             );
           }
-          final catalog = IndexCatalog(
-            snapshot.data ?? const [],
-            display: settings.scriptDisplay,
-            maxLevel: settings.maxCharacterLevel,
-          );
+          final catalog = _catalogFor(snapshot.data ?? const [], settings);
           return Column(
             children: [
               _IndexFilters(
@@ -292,8 +287,6 @@ class _PronunciationIndex extends StatefulWidget {
 
 class _PronunciationIndexState extends State<_PronunciationIndex> {
   final _scrollController = ScrollController();
-  final _viewportKey = GlobalKey();
-  final _readingKeys = <String, GlobalKey>{};
   final _sectionKeys = <String, GlobalKey>{};
   String? _selectedSection;
 
@@ -306,18 +299,10 @@ class _PronunciationIndexState extends State<_PronunciationIndex> {
   @override
   void didUpdateWidget(covariant _PronunciationIndex oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final anchor = _topVisibleAnchor(_readingKeys, _viewportKey);
-    if (anchor == null) return;
-    final oldReadings = _pronunciationGroups(oldWidget).values.expand((e) => e);
-    final newGroups = _pronunciationGroups(widget);
-    final newReadings = newGroups.values.expand((e) => e).toList();
-    final target = _nearestVisible(anchor, oldReadings.toList(), newReadings);
-    if (target == null) return;
-    _selectedSection = newGroups.entries
-        .where((entry) => entry.value.contains(target))
-        .firstOrNull
-        ?.key;
-    _restoreAnchor(_readingKeys, target);
+    restoreScrollProgress(
+      _scrollController,
+      scrollProgress(_scrollController),
+    );
   }
 
   @override
@@ -359,7 +344,6 @@ class _PronunciationIndexState extends State<_PronunciationIndex> {
                   child: Listener(
                     onPointerSignal: _boostPointerScroll,
                     child: ListView(
-                      key: _viewportKey,
                       controller: _scrollController,
                       physics: const _FastScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
@@ -372,7 +356,6 @@ class _PronunciationIndexState extends State<_PronunciationIndex> {
                                 ? '${PinyinUtils.displayFinal(section)} 韵'
                                 : '${section.toUpperCase()} 部',
                             readings: groups[section]!,
-                            anchorKeys: _readingKeys,
                             onSelected: (reading) => _openReading(reading),
                           ),
                       ],
@@ -430,13 +413,11 @@ class _ReadingSection extends StatelessWidget {
   const _ReadingSection({
     required this.title,
     required this.readings,
-    required this.anchorKeys,
     required this.onSelected,
     super.key,
   });
   final String title;
   final List<String> readings;
-  final Map<String, GlobalKey> anchorKeys;
   final ValueChanged<String> onSelected;
 
   @override
@@ -459,7 +440,6 @@ class _ReadingSection extends StatelessWidget {
               children: [
                 for (final reading in readings)
                   ActionChip(
-                    key: anchorKeys.putIfAbsent(reading, GlobalKey.new),
                     label: Text(reading),
                     onPressed: () => onSelected(reading),
                   ),
@@ -485,8 +465,6 @@ class _RadicalIndex extends StatefulWidget {
 
 class _RadicalIndexState extends State<_RadicalIndex> {
   final _scrollController = ScrollController();
-  final _viewportKey = GlobalKey();
-  final _radicalKeys = <String, GlobalKey>{};
   final _sectionKeys = <int, GlobalKey>{};
   int? _selectedStroke;
 
@@ -499,14 +477,10 @@ class _RadicalIndexState extends State<_RadicalIndex> {
   @override
   void didUpdateWidget(covariant _RadicalIndex oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final anchor = topVisibleHanAnchor(_radicalKeys, _viewportKey);
-    if (anchor == null) return;
-    final oldValues =
-        oldWidget.catalog.radicalsByStroke.values.expand((e) => e).toList();
-    final newValues =
-        widget.catalog.radicalsByStroke.values.expand((e) => e).toList();
-    final target = _nearestVisible(anchor, oldValues, newValues);
-    if (target != null) _restoreAnchor(_radicalKeys, target);
+    restoreScrollProgress(
+      _scrollController,
+      scrollProgress(_scrollController),
+    );
   }
 
   @override
@@ -540,7 +514,6 @@ class _RadicalIndexState extends State<_RadicalIndex> {
                   child: Listener(
                     onPointerSignal: _boostPointerScroll,
                     child: ListView(
-                      key: _viewportKey,
                       controller: _scrollController,
                       physics: const _FastScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
@@ -570,8 +543,6 @@ class _RadicalIndexState extends State<_RadicalIndex> {
                                   children: [
                                     for (final radical in groups[stroke]!)
                                       ActionChip(
-                                        key: _radicalKeys.putIfAbsent(
-                                            radical, GlobalKey.new),
                                         label: SizedBox.square(
                                           dimension: 28,
                                           child: widget.catalog
@@ -706,25 +677,22 @@ class _StrokeIndex extends StatefulWidget {
 }
 
 class _StrokeIndexState extends State<_StrokeIndex> {
-  final _viewportKey = GlobalKey();
-  final _characterKeys = <String, GlobalKey>{};
+  final _scrollController = ScrollController();
   int? selectedStroke;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(covariant _StrokeIndex oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final anchor = topVisibleHanAnchor(_characterKeys, _viewportKey);
-    if (anchor == null || selectedStroke == null) return;
-    final oldValues = oldWidget.catalog
-        .entriesForStrokeCount(selectedStroke!)
-        .map((entry) => entry.character)
-        .toList();
-    final newValues = widget.catalog
-        .entriesForStrokeCount(selectedStroke!)
-        .map((entry) => entry.character)
-        .toList();
-    final target = _nearestVisible(anchor, oldValues, newValues);
-    if (target != null) _restoreAnchor(_characterKeys, target);
+    restoreScrollProgress(
+      _scrollController,
+      scrollProgress(_scrollController),
+    );
   }
 
   @override
@@ -759,7 +727,7 @@ class _StrokeIndexState extends State<_StrokeIndex> {
               ],
               Expanded(
                 child: ListView(
-                  key: _viewportKey,
+                  controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
                   children: [
                     Text(
@@ -800,8 +768,7 @@ class _StrokeIndexState extends State<_StrokeIndex> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      _CharacterWrap(
-                          entries: group.value, anchorKeys: _characterKeys),
+                      _CharacterWrap(entries: group.value),
                       const SizedBox(height: 18),
                     ],
                   ],
@@ -830,8 +797,6 @@ class _DifficultIndex extends StatefulWidget {
 
 class _DifficultIndexState extends State<_DifficultIndex> {
   final _scrollController = ScrollController();
-  final _viewportKey = GlobalKey();
-  final _characterKeys = <String, GlobalKey>{};
   final _sectionKeys = <int, GlobalKey>{};
   int? selectedStroke;
 
@@ -844,18 +809,10 @@ class _DifficultIndexState extends State<_DifficultIndex> {
   @override
   void didUpdateWidget(covariant _DifficultIndex oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final anchor = topVisibleHanAnchor(_characterKeys, _viewportKey);
-    if (anchor == null) return;
-    final oldValues = oldWidget.catalog.difficultByStroke.values
-        .expand((entries) => entries)
-        .map((entry) => entry.character)
-        .toList();
-    final newValues = widget.catalog.difficultByStroke.values
-        .expand((entries) => entries)
-        .map((entry) => entry.character)
-        .toList();
-    final target = _nearestVisible(anchor, oldValues, newValues);
-    if (target != null) _restoreAnchor(_characterKeys, target);
+    restoreScrollProgress(
+      _scrollController,
+      scrollProgress(_scrollController),
+    );
   }
 
   @override
@@ -890,7 +847,6 @@ class _DifficultIndexState extends State<_DifficultIndex> {
                   child: Listener(
                     onPointerSignal: _boostPointerScroll,
                     child: ListView(
-                      key: _viewportKey,
                       controller: _scrollController,
                       physics: const _FastScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
@@ -916,10 +872,7 @@ class _DifficultIndexState extends State<_DifficultIndex> {
                                               .primary),
                                 ),
                                 const SizedBox(height: 12),
-                                _CharacterWrap(
-                                  entries: groups[stroke]!,
-                                  anchorKeys: _characterKeys,
-                                ),
+                                _CharacterWrap(entries: groups[stroke]!),
                               ],
                             ),
                           ),
@@ -1023,9 +976,8 @@ class _SyllableResultPage extends StatelessWidget {
 }
 
 class _CharacterWrap extends StatelessWidget {
-  const _CharacterWrap({required this.entries, this.anchorKeys});
+  const _CharacterWrap({required this.entries});
   final List<ChineseEntry> entries;
-  final Map<String, GlobalKey>? anchorKeys;
 
   @override
   Widget build(BuildContext context) => Wrap(
@@ -1034,7 +986,6 @@ class _CharacterWrap extends StatelessWidget {
         children: [
           for (final entry in entries)
             SizedBox(
-              key: anchorKeys?.putIfAbsent(entry.character, GlobalKey.new),
               width: 58,
               height: 58,
               child: _CharacterTile(entry: entry),

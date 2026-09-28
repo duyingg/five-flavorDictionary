@@ -2,7 +2,7 @@ enum DailyContentType { character, word, idiom, verse }
 
 extension DailyContentTypeLabel on DailyContentType {
   String get label => switch (this) {
-        DailyContentType.character => '文字',
+        DailyContentType.character => '汉字',
         DailyContentType.word => '词语',
         DailyContentType.idiom => '成语',
         DailyContentType.verse => '诗句',
@@ -217,12 +217,21 @@ class AppSettings {
     this.autofocusAfterClear = true,
     this.reduceDecoration = false,
     this.fullPoetryLibrary = false,
+    this.globalHanLookupEnabled = true,
     this.scriptDisplay = ScriptDisplay.simplified,
     this.maxCharacterLevel = 3,
     this.skin = AppSkin.parchment,
     this.importedSkin,
     this.importedSkins = const [],
     this.sidebarWidth = 68,
+    this.showPinyin = true,
+    this.showZhuyin = true,
+    this.showWubi = true,
+    this.showRadical = true,
+    this.showStrokeCount = true,
+    this.showStructure = true,
+    this.showUnicode = true,
+    this.showStrokeOrder = true,
   });
   final DailyContentType dailyContentType;
   final AppFontScale fontScale;
@@ -230,12 +239,21 @@ class AppSettings {
   final bool autofocusAfterClear;
   final bool reduceDecoration;
   final bool fullPoetryLibrary;
+  final bool globalHanLookupEnabled;
   final ScriptDisplay scriptDisplay;
   final int maxCharacterLevel;
   final AppSkin skin;
   final ImportedSkin? importedSkin;
   final List<ImportedSkin> importedSkins;
   final double sidebarWidth;
+  final bool showPinyin;
+  final bool showZhuyin;
+  final bool showWubi;
+  final bool showRadical;
+  final bool showStrokeCount;
+  final bool showStructure;
+  final bool showUnicode;
+  final bool showStrokeOrder;
 
   AppSettings copyWith({
     DailyContentType? dailyContentType,
@@ -244,6 +262,7 @@ class AppSettings {
     bool? autofocusAfterClear,
     bool? reduceDecoration,
     bool? fullPoetryLibrary,
+    bool? globalHanLookupEnabled,
     ScriptDisplay? scriptDisplay,
     int? maxCharacterLevel,
     AppSkin? skin,
@@ -251,6 +270,14 @@ class AppSettings {
     List<ImportedSkin>? importedSkins,
     bool clearImportedSkin = false,
     double? sidebarWidth,
+    bool? showPinyin,
+    bool? showZhuyin,
+    bool? showWubi,
+    bool? showRadical,
+    bool? showStrokeCount,
+    bool? showStructure,
+    bool? showUnicode,
+    bool? showStrokeOrder,
   }) =>
       AppSettings(
         dailyContentType: dailyContentType ?? this.dailyContentType,
@@ -259,6 +286,8 @@ class AppSettings {
         autofocusAfterClear: autofocusAfterClear ?? this.autofocusAfterClear,
         reduceDecoration: reduceDecoration ?? this.reduceDecoration,
         fullPoetryLibrary: fullPoetryLibrary ?? this.fullPoetryLibrary,
+        globalHanLookupEnabled:
+            globalHanLookupEnabled ?? this.globalHanLookupEnabled,
         scriptDisplay: scriptDisplay ?? this.scriptDisplay,
         maxCharacterLevel: maxCharacterLevel ?? this.maxCharacterLevel,
         skin: skin ?? this.skin,
@@ -266,6 +295,14 @@ class AppSettings {
             clearImportedSkin ? null : importedSkin ?? this.importedSkin,
         importedSkins: importedSkins ?? this.importedSkins,
         sidebarWidth: sidebarWidth ?? this.sidebarWidth,
+        showPinyin: showPinyin ?? this.showPinyin,
+        showZhuyin: showZhuyin ?? this.showZhuyin,
+        showWubi: showWubi ?? this.showWubi,
+        showRadical: showRadical ?? this.showRadical,
+        showStrokeCount: showStrokeCount ?? this.showStrokeCount,
+        showStructure: showStructure ?? this.showStructure,
+        showUnicode: showUnicode ?? this.showUnicode,
+        showStrokeOrder: showStrokeOrder ?? this.showStrokeOrder,
       );
 }
 
@@ -308,6 +345,7 @@ class ChineseEntry {
     this.simplifiedForms = const [],
     this.traditionalForms = const [],
     this.characterLevel = 3,
+    this.wubi = '',
   });
   final String character;
   final List<String> pinyin;
@@ -327,6 +365,7 @@ class ChineseEntry {
   final List<String> simplifiedForms;
   final List<String> traditionalForms;
   final int characterLevel;
+  final String wubi;
 
   factory ChineseEntry.fromJson(Map<String, dynamic> json) => ChineseEntry(
         character: json['character'] as String,
@@ -353,7 +392,20 @@ class ChineseEntry {
         traditionalForms:
             List<String>.from(json['traditionalForms'] as List? ?? const []),
         characterLevel: json['characterLevel'] as int? ?? 3,
+        wubi: json['wubi'] as String? ?? '',
       );
+}
+
+class WordEntry {
+  const WordEntry({
+    required this.word,
+    required this.pinyin,
+    required this.definition,
+  });
+
+  final String word;
+  final String pinyin;
+  final String definition;
 }
 
 class PolyphonicLesson {
@@ -412,11 +464,40 @@ class DailyContent {
       );
 }
 
-enum CultureCategory { schools, tangPoems, other }
+class SentenceNote {
+  const SentenceNote({
+    required this.id,
+    required this.character,
+    required this.content,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String character;
+  final String content;
+  final DateTime createdAt;
+
+  factory SentenceNote.fromJson(Map<String, dynamic> json) => SentenceNote(
+        id: json['id'] as String,
+        character: json['character'] as String,
+        content: json['content'] as String,
+        createdAt: DateTime.parse(json['createdAt'] as String),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'character': character,
+        'content': content,
+        'createdAt': createdAt.toIso8601String(),
+      };
+}
+
+enum CultureCategory { schools, classics, tangPoems, other }
 
 extension CultureCategoryLabel on CultureCategory {
   String get label => switch (this) {
         CultureCategory.schools => '诸子百家',
+        CultureCategory.classics => '典籍',
         CultureCategory.tangPoems => '诗词',
         CultureCategory.other => '其他',
       };
@@ -431,7 +512,12 @@ class CultureItem {
       required this.summary,
       required this.content,
       required this.sourceId,
-      this.readingContent});
+      this.readingContent,
+      this.notes = '',
+      this.translation = '',
+      this.appreciation = '',
+      this.passagesAsset,
+      this.passages = const []});
   final String id;
   final CultureCategory category;
   final String title;
@@ -440,6 +526,11 @@ class CultureItem {
   final String content;
   final String sourceId;
   final String? readingContent;
+  final String notes;
+  final String translation;
+  final String appreciation;
+  final String? passagesAsset;
+  final List<CulturePassage> passages;
   factory CultureItem.fromJson(Map<String, dynamic> json) => CultureItem(
         id: json['id'] as String,
         category: CultureCategory.values.byName(json['category'] as String),
@@ -449,6 +540,49 @@ class CultureItem {
         content: json['content'] as String,
         sourceId: json['sourceId'] as String,
         readingContent: json['readingContent'] as String?,
+        notes: json['notes'] as String? ?? '',
+        translation: json['translation'] as String? ?? '',
+        appreciation: json['appreciation'] as String? ?? '',
+        passagesAsset: json['passagesAsset'] as String?,
+        passages: (json['passages'] as List? ?? const [])
+            .whereType<Map>()
+            .map((item) =>
+                CulturePassage.fromJson(Map<String, dynamic>.from(item)))
+            .toList(growable: false),
+      );
+
+  CultureItem withPassages(List<CulturePassage> value) => CultureItem(
+        id: id,
+        category: category,
+        title: title,
+        subtitle: subtitle,
+        summary: summary,
+        content: content,
+        sourceId: sourceId,
+        readingContent: readingContent,
+        notes: notes,
+        translation: translation,
+        appreciation: appreciation,
+        passagesAsset: passagesAsset,
+        passages: value,
+      );
+}
+
+class CulturePassage {
+  const CulturePassage({
+    required this.original,
+    required this.translation,
+    this.heading = '',
+  });
+
+  final String heading;
+  final String original;
+  final String translation;
+
+  factory CulturePassage.fromJson(Map<String, dynamic> json) => CulturePassage(
+        heading: json['heading'] as String? ?? '',
+        original: json['original'] as String? ?? '',
+        translation: json['translation'] as String? ?? '',
       );
 }
 
@@ -498,23 +632,4 @@ class PoetryItem {
   final String notes;
   final String translation;
   final String appreciation;
-
-  factory PoetryItem.fromJson(Map<String, dynamic> json) => PoetryItem(
-        id: json['id'] as String,
-        title: json['title'] as String,
-        author: json['author'] as String,
-        dynasty: json['dynasty'] as String,
-        form: json['form'] as String,
-        style: json['style'] as String,
-        theme: json['theme'] as String,
-        emotion: json['emotion'] as String,
-        content: json['content'] as String,
-        shuffleKey: json['shuffleKey'] as int,
-        sequence: json['sequence'] as int,
-        searchText: json['searchText'] as String,
-        sourceId: json['sourceId'] as String,
-        notes: json['notes'] as String? ?? '',
-        translation: json['translation'] as String? ?? '',
-        appreciation: json['appreciation'] as String? ?? '',
-      );
 }

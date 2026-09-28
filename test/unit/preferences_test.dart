@@ -52,14 +52,24 @@ void main() {
       cardRadius: 20,
     );
     await store.saveSettings(const AppSettings(
+      globalHanLookupEnabled: false,
       scriptDisplay: ScriptDisplay.traditional,
       maxCharacterLevel: 2,
       skin: AppSkin.imported,
       importedSkin: imported,
       importedSkins: [imported],
       sidebarWidth: 92,
+      showPinyin: false,
+      showZhuyin: false,
+      showWubi: false,
+      showRadical: false,
+      showStrokeCount: false,
+      showStructure: false,
+      showUnicode: false,
+      showStrokeOrder: false,
     ));
     final loaded = await store.loadSettings();
+    expect(loaded.globalHanLookupEnabled, isFalse);
     expect(loaded.scriptDisplay, ScriptDisplay.traditional);
     expect(loaded.maxCharacterLevel, 2);
     expect(loaded.skin, AppSkin.imported);
@@ -69,6 +79,14 @@ void main() {
     expect(loaded.importedSkins.map((skin) => skin.name), contains('测试皮肤'));
     expect(loaded.importedSkins, hasLength(6));
     expect(loaded.sidebarWidth, 92);
+    expect(loaded.showPinyin, isFalse);
+    expect(loaded.showZhuyin, isFalse);
+    expect(loaded.showWubi, isFalse);
+    expect(loaded.showRadical, isFalse);
+    expect(loaded.showStrokeCount, isFalse);
+    expect(loaded.showStructure, isFalse);
+    expect(loaded.showUnicode, isFalse);
+    expect(loaded.showStrokeOrder, isFalse);
     expect(
         AppSkinRegistry.of(loaded.skin, loaded.importedSkin)
             .hasIcon('nav.home'),
@@ -80,6 +98,28 @@ void main() {
     final values = List.generate(120, (index) => '字$index');
     await store.saveSearchHistory(values);
     expect(await store.loadSearchHistory(), hasLength(100));
+  });
+
+  test('造句便签保留汉字、正文和创作日期', () async {
+    final store = PreferencesStore();
+    final createdAt = DateTime(2026, 9, 21, 14, 35);
+    final notes = [
+      SentenceNote(
+        id: 'note-1',
+        character: '学',
+        content: '我们每天认真学习。',
+        createdAt: createdAt,
+      ),
+    ];
+
+    await store.saveSentenceNotes(notes);
+    final loaded = await store.loadSentenceNotes();
+
+    expect(loaded, hasLength(1));
+    expect(loaded.single.id, 'note-1');
+    expect(loaded.single.character, '学');
+    expect(loaded.single.content, '我们每天认真学习。');
+    expect(loaded.single.createdAt, createdAt);
   });
 
   test('皮肤图标覆盖可检测且缺失时回退', () {

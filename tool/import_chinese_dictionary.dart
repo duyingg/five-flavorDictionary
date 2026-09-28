@@ -5,6 +5,7 @@ import 'package:wuwei_dictionary/core/language/pinyin_utils.dart';
 
 const _sourceDirectory = 'Aatime/chinese-dictionary-main/character';
 const _outputPath = 'assets/data/chinese_entries_v3.json';
+const _wubiSourcePath = 'Aatime/rime-wubi/wubi86.dict.yaml';
 const _invalidPinyinReportPath = '项目文档/损坏拼音核对报告.md';
 const _polyphonicLearningAssetPath = 'assets/data/polyphonic_lessons.json';
 const _polyphonicWorkbookPath = '项目文档/多音字学习字库总表.md';
@@ -13,6 +14,30 @@ const _commonPolyphonicReportPath = '项目文档/常用100个多音字候选.md
 const _coverageReportPath = '项目文档/字库覆盖统计.md';
 
 final _invalidPinyin = <({String character, String location, String pinyin})>[];
+
+Map<String, String> _readWubiCodes(File file) {
+  if (!file.existsSync()) return const {};
+  final candidates = <String, Set<String>>{};
+  for (final line in file.readAsLinesSync()) {
+    if (line.isEmpty || line.startsWith('#')) continue;
+    final columns = line.split('\t');
+    if (columns.length < 2 || columns.first.runes.length != 1) continue;
+    final code = columns[1].trim();
+    if (!RegExp(r'^[a-z]{1,4}$').hasMatch(code)) continue;
+    candidates.putIfAbsent(columns.first, () => {}).add(code.toUpperCase());
+  }
+  return {
+    for (final item in candidates.entries)
+      item.key: () {
+        final longest = item.value.map((code) => code.length).reduce(
+              (left, right) => left > right ? left : right,
+            );
+        final sorted =
+            item.value.where((code) => code.length == longest).toList()..sort();
+        return sorted.join(' / ');
+      }(),
+  };
+}
 
 const _correctedSourceReadings = <String, Map<String, String>>{
   '兙': {'shíkě': 'shí kè'},
@@ -34,6 +59,7 @@ const _correctedSourceReadings = <String, Map<String, String>>{
 
 const _additionalReadings = <String, List<String>>{
   '圕': ['tú shū guǎn'],
+  '砼': ['hùn níng tǔ'],
 };
 
 const _commonLearningReadings = <String, List<String>>{
@@ -150,6 +176,7 @@ void main() {
 
   final bases = _readObjectSequence(baseFile);
   final details = _readObjectSequence(detailFile);
+  final wubiByCharacter = _readWubiCodes(File(_wubiSourcePath));
   final detailByCharacter = <String, Map<String, dynamic>>{
     for (final detail in details)
       if (detail['char'] case final String character) character: detail,
@@ -224,6 +251,7 @@ void main() {
       'character': character,
       'sourceIndex': base['index'] as int? ?? 0,
       'pinyin': pinyin,
+      'wubi': wubiByCharacter[character] ?? '',
       'radical': radical,
       'strokeCount': strokeCount,
       'structure': _structure(base['structure'] as String?),
@@ -269,6 +297,8 @@ void main() {
   stdout.writeln('Imported ${output.length} unique character entries.');
   stdout.writeln('Levels: $levels');
   stdout.writeln('Senses: $senseCount');
+  stdout.writeln(
+      'Wubi codes: ${output.where((entry) => (entry['wubi'] as String).isNotEmpty).length}');
   stdout.writeln('Stroke SVG links: $strokeAssetCount');
   stdout.writeln(
     'Rejected pinyin records: ${_invalidPinyin.toSet().length} '
@@ -382,6 +412,11 @@ List<Map<String, dynamic>> _manualSenses(String character) =>
           {
             'pinyin': 'tóng',
             'definition': '“混凝土”的单字替代字，读音同“同”。',
+            'examples': <String>[],
+          },
+          {
+            'pinyin': 'hùn níng tǔ',
+            'definition': '传统复读音，读作“混凝土”。',
             'examples': <String>[],
           },
         ],

@@ -13,14 +13,24 @@ abstract final class PreferencesKeys {
   static const autofocus = 'v1.settings.autofocusAfterClear';
   static const reduceDecoration = 'v1.settings.reduceDecoration';
   static const fullPoetryLibrary = 'v1.settings.fullPoetryLibrary';
+  static const globalHanLookup = 'v1.settings.globalHanLookup';
   static const scriptDisplay = 'v1.settings.scriptDisplay';
   static const maxCharacterLevel = 'v1.settings.maxCharacterLevel';
   static const skin = 'v1.settings.skin';
   static const importedSkin = 'v1.settings.importedSkin';
   static const activeImportedSkin = 'v2.settings.activeImportedSkin';
   static const sidebarWidth = 'v1.settings.sidebarWidth';
+  static const showPinyin = 'v2.settings.entry.showPinyin';
+  static const showZhuyin = 'v2.settings.entry.showZhuyin';
+  static const showWubi = 'v2.settings.entry.showWubi';
+  static const showRadical = 'v2.settings.entry.showRadical';
+  static const showStrokeCount = 'v2.settings.entry.showStrokeCount';
+  static const showStructure = 'v2.settings.entry.showStructure';
+  static const showUnicode = 'v2.settings.entry.showUnicode';
+  static const showStrokeOrder = 'v2.settings.entry.showStrokeOrder';
   static const favorites = 'v1.favorites.characters';
   static const searchHistory = 'v1.searchHistory.characters';
+  static const sentenceNotes = 'v1.learning.sentenceNotes';
   static const defaultSkinSeeded = 'v1.skin.defaultSeeded';
   static const bundledSkinsSeeded = 'v2.skin.bundledSeeded';
 }
@@ -83,6 +93,8 @@ class PreferencesStore {
           prefs.getBool(PreferencesKeys.reduceDecoration) ?? false,
       fullPoetryLibrary:
           prefs.getBool(PreferencesKeys.fullPoetryLibrary) ?? false,
+      globalHanLookupEnabled:
+          prefs.getBool(PreferencesKeys.globalHanLookup) ?? true,
       scriptDisplay: ScriptDisplay.values.byName(
         prefs.getString(PreferencesKeys.scriptDisplay) ?? 'simplified',
       ),
@@ -96,6 +108,14 @@ class PreferencesStore {
       sidebarWidth: (prefs.getDouble(PreferencesKeys.sidebarWidth) ?? 68)
           .clamp(48, 120)
           .toDouble(),
+      showPinyin: prefs.getBool(PreferencesKeys.showPinyin) ?? true,
+      showZhuyin: prefs.getBool(PreferencesKeys.showZhuyin) ?? true,
+      showWubi: prefs.getBool(PreferencesKeys.showWubi) ?? true,
+      showRadical: prefs.getBool(PreferencesKeys.showRadical) ?? true,
+      showStrokeCount: prefs.getBool(PreferencesKeys.showStrokeCount) ?? true,
+      showStructure: prefs.getBool(PreferencesKeys.showStructure) ?? true,
+      showUnicode: prefs.getBool(PreferencesKeys.showUnicode) ?? true,
+      showStrokeOrder: prefs.getBool(PreferencesKeys.showStrokeOrder) ?? true,
     );
   }
 
@@ -111,6 +131,10 @@ class PreferencesStore {
       prefs.setBool(PreferencesKeys.autofocus, value.autofocusAfterClear),
       prefs.setBool(PreferencesKeys.reduceDecoration, value.reduceDecoration),
       prefs.setBool(PreferencesKeys.fullPoetryLibrary, value.fullPoetryLibrary),
+      prefs.setBool(
+        PreferencesKeys.globalHanLookup,
+        value.globalHanLookupEnabled,
+      ),
       prefs.setString(PreferencesKeys.scriptDisplay, value.scriptDisplay.name),
       prefs.setInt(PreferencesKeys.maxCharacterLevel, value.maxCharacterLevel),
       prefs.setString(PreferencesKeys.skin, value.skin.name),
@@ -125,6 +149,14 @@ class PreferencesStore {
         PreferencesKeys.sidebarWidth,
         value.sidebarWidth.clamp(48, 120),
       ),
+      prefs.setBool(PreferencesKeys.showPinyin, value.showPinyin),
+      prefs.setBool(PreferencesKeys.showZhuyin, value.showZhuyin),
+      prefs.setBool(PreferencesKeys.showWubi, value.showWubi),
+      prefs.setBool(PreferencesKeys.showRadical, value.showRadical),
+      prefs.setBool(PreferencesKeys.showStrokeCount, value.showStrokeCount),
+      prefs.setBool(PreferencesKeys.showStructure, value.showStructure),
+      prefs.setBool(PreferencesKeys.showUnicode, value.showUnicode),
+      prefs.setBool(PreferencesKeys.showStrokeOrder, value.showStrokeOrder),
     ]);
   }
 
@@ -185,5 +217,25 @@ class PreferencesStore {
       (await SharedPreferences.getInstance()).setStringList(
         PreferencesKeys.searchHistory,
         values.take(100).toList(),
+      );
+
+  Future<List<SentenceNote>> loadSentenceNotes() async {
+    final encoded = (await SharedPreferences.getInstance())
+        .getString(PreferencesKeys.sentenceNotes);
+    if (encoded == null) return const [];
+    try {
+      return [
+        for (final item in jsonDecode(encoded) as List)
+          SentenceNote.fromJson(Map<String, dynamic>.from(item as Map)),
+      ];
+    } on Object {
+      return const [];
+    }
+  }
+
+  Future<void> saveSentenceNotes(List<SentenceNote> values) async =>
+      (await SharedPreferences.getInstance()).setString(
+        PreferencesKeys.sentenceNotes,
+        jsonEncode([for (final value in values) value.toJson()]),
       );
 }

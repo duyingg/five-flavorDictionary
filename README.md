@@ -28,6 +28,12 @@ git lfs pull
 flutter pub get --enforce-lockfile
 ```
 
+词语或成语源数据更新后，重新生成应用使用的紧凑索引：
+
+```powershell
+dart run tool/import_words.dart
+```
+
 运行检查：
 
 ```powershell
@@ -39,6 +45,17 @@ flutter pub get --enforce-lockfile
 ```powershell
 .\build-apk.ps1
 ```
+
+每次成功构筑都会自动递增 `pubspec.yaml` 中的构筑号，例如
+`1.0.2+3` 会变为 `1.0.2+4`；构筑失败时会自动恢复原版本。需要同时提升
+公开版本时可使用 `-VersionIncrement patch`、`minor` 或 `major`：
+
+```powershell
+.\build-apk.ps1 -VersionIncrement patch
+```
+
+`-ValidateOnly` 只执行检查，不会修改版本号。默认生成通用 APK；如需减小单个
+安装包，可使用 `-Mode split` 按 ABI 分包。
 
 默认 APK 使用调试签名，只适合本地安装。公开发布前请配置私有发布密钥并执行：
 

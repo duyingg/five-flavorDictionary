@@ -2,13 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_drawing/path_drawing.dart';
 
+const _strokePathCacheLimit = 256;
 final _strokePathCache = <String, Future<List<Path>>>{};
 
-Future<List<Path>> _loadStrokePaths(String assetPath) =>
-    _strokePathCache.putIfAbsent(assetPath, () async {
+Future<List<Path>> _loadStrokePaths(String assetPath) {
+  final cached = _strokePathCache.remove(assetPath);
+  if (cached != null) {
+    _strokePathCache[assetPath] = cached;
+    return cached;
+  }
+  late final Future<List<Path>> future;
+  future = () async {
+    try {
       final source = await rootBundle.loadString(assetPath);
       return parseStrokePaths(source);
-    });
+    } catch (_) {
+      if (identical(_strokePathCache[assetPath], future)) {
+        _strokePathCache.remove(assetPath);
+      }
+      rethrow;
+    }
+  }();
+  _strokePathCache[assetPath] = future;
+  if (_strokePathCache.length > _strokePathCacheLimit) {
+    _strokePathCache.remove(_strokePathCache.keys.first);
+  }
+  return future;
+}
 
 class HanziGlyph extends StatelessWidget {
   const HanziGlyph({
@@ -61,31 +81,55 @@ class _StrokeOrderViewState extends State<StrokeOrderView>
   late final AnimationController _controller;
   List<Path>? _strokes;
   Object? _error;
+  var _visibleCount = 1;
+  var _loadRevision = 0;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this)
-      ..addListener(() => setState(() {}));
+    _controller = AnimationController(vsync: this)..addListener(_updateFrame);
     _load();
   }
 
   Future<void> _load() async {
+    final revision = ++_loadRevision;
     try {
       final paths = await _loadStrokePaths(widget.assetPath);
-      if (!mounted) {
-        return;
-      }
-      setState(() => _strokes = paths);
+      if (!mounted || revision != _loadRevision) return;
+      setState(() {
+        _strokes = paths;
+        _error = null;
+        _visibleCount = 1;
+      });
       _controller.duration = Duration(
         milliseconds: (paths.length * 520).clamp(1200, 16000),
       );
-      _controller.repeat();
+      if (paths.isNotEmpty) _controller.repeat();
     } catch (error) {
-      if (mounted) {
+      if (mounted && revision == _loadRevision) {
         setState(() => _error = error);
       }
     }
+  }
+
+  @override
+  void didUpdateWidget(covariant StrokeOrderView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.assetPath == widget.assetPath) return;
+    _controller.stop();
+    _strokes = null;
+    _error = null;
+    _visibleCount = 1;
+    _load();
+  }
+
+  void _updateFrame() {
+    final strokes = _strokes;
+    if (strokes == null || strokes.isEmpty) return;
+    final next = (_controller.value * strokes.length).floor() + 1;
+    final clamped = next > strokes.length ? strokes.length : next;
+    if (clamped == _visibleCount) return;
+    setState(() => _visibleCount = clamped);
   }
 
   @override
@@ -103,14 +147,13 @@ class _StrokeOrderViewState extends State<StrokeOrderView>
     if (strokes == null || strokes.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    final visible = (_controller.value * strokes.length).floor() + 1;
     return Stack(
       children: [
         Positioned.fill(
           child: CustomPaint(
             painter: _StrokePainter(
               strokes: strokes,
-              visibleCount: visible,
+              visibleCount: _visibleCount,
               gridColor: Theme.of(context).dividerColor,
               completedColor: Theme.of(context).colorScheme.onSurface,
               activeColor: Theme.of(context).colorScheme.primary,
@@ -128,7 +171,7 @@ class _StrokeOrderViewState extends State<StrokeOrderView>
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Text('$visible / ${strokes.length}'),
+              child: Text('$_visibleCount / ${strokes.length}'),
             ),
           ),
         ),

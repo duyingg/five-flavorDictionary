@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/providers.dart';
 import '../../app/app_routes.dart';
 import '../../core/widgets/common_widgets.dart';
+import '../../core/widgets/global_han_lookup.dart';
 import '../dictionary/single_han_validator.dart';
 import '../domain/models.dart';
 import '../index_search/index_search_page.dart';
@@ -20,6 +21,24 @@ class _HomePageState extends ConsumerState<HomePage> {
   final _focus = FocusNode();
   String? _error;
 
+  Future<void> _openDailyContent(DailyContent item) async {
+    if (item.type == DailyContentType.word ||
+        item.type == DailyContentType.idiom) {
+      context.push(AppRoutes.word(item.title));
+      return;
+    }
+    if (item.type != DailyContentType.verse) return;
+    final target = await ref.read(dailyPoetryTargetProvider(item).future);
+    if (!mounted) return;
+    if (target == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('暂未在诗词库中找到原诗')),
+      );
+      return;
+    }
+    context.push(AppRoutes.poetryDetail(target.id));
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -28,15 +47,36 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   void _search() {
-    final result = const SingleHanValidator().validate(_controller.text);
+    final value = _controller.text.trim();
+    final characters = value.characters.toList(growable: false);
+    if (characters.length > 1) {
+      if (characters.length > 16) {
+        setState(() => _error = '一次最多查询 16 个汉字');
+        _focus.requestFocus();
+        return;
+      }
+      final valid = characters.every(
+        (character) =>
+            const SingleHanValidator().validate(character) is ValidHan,
+      );
+      if (valid) {
+        setState(() => _error = null);
+        context.push(AppRoutes.word(value));
+      } else {
+        setState(() => _error = '请输入连续的汉字或词语');
+        _focus.requestFocus();
+      }
+      return;
+    }
+    final result = const SingleHanValidator().validate(value);
     switch (result) {
       case ValidHan(:final value):
         setState(() => _error = null);
         context.push(AppRoutes.character(value));
       case InvalidHan(:final error):
         setState(() => _error = switch (error) {
-              HanInputError.empty => '请输入一个汉字',
-              HanInputError.multipleCharacters => '首页仅支持查询单个汉字',
+              HanInputError.empty => '请输入汉字或词语',
+              HanInputError.multipleCharacters => '请输入连续的汉字或词语',
               HanInputError.nonHanCharacter => '请输入有效的汉字',
             });
         _focus.requestFocus();
@@ -68,7 +108,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       textInputAction: TextInputAction.search,
                       onSubmitted: (_) => _search(),
                       decoration: InputDecoration(
-                        hintText: '请输入要查询的单个汉字',
+                        hintText: '请输入要查询的汉字或词语',
                         prefixIcon: const Icon(Icons.search),
                         errorText: _error,
                       ),
@@ -104,12 +144,28 @@ class _HomePageState extends ConsumerState<HomePage> {
                               data: (item) => item == null
                                   ? const EmptyState(
                                       title: '暂无每日内容', message: '请稍后再来看看')
-                                  : _DailyCard(
-                                      item: item,
-                                      compact: compact,
-                                      onReroll: () => ref
-                                          .read(dailyRerollProvider.notifier)
-                                          .state++),
+                                  : item.type == DailyContentType.character
+                                      ? _DailyCard(
+                                          item: item,
+                                          compact: compact,
+                                          onOpen: null,
+                                          onReroll: () => ref
+                                              .read(
+                                                  dailyRerollProvider.notifier)
+                                              .state++,
+                                        )
+                                      : GlobalHanLookupBlocker(
+                                          child: _DailyCard(
+                                            item: item,
+                                            compact: compact,
+                                            onOpen: () =>
+                                                _openDailyContent(item),
+                                            onReroll: () => ref
+                                                .read(dailyRerollProvider
+                                                    .notifier)
+                                                .state++,
+                                          ),
+                                        ),
                               loading: () => const Center(
                                   child: CircularProgressIndicator()),
                               error: (_, __) => const EmptyState(
@@ -231,10 +287,12 @@ class _DailyCard extends StatelessWidget {
     required this.item,
     required this.onReroll,
     required this.compact,
+    required this.onOpen,
   });
   final DailyContent item;
   final VoidCallback onReroll;
   final bool compact;
+  final VoidCallback? onOpen;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -253,42 +311,104 @@ class _DailyCard extends StatelessWidget {
             ]),
             Expanded(
               child: Center(
-                child: SingleChildScrollView(
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    if (item.pronunciation != null)
-                      Text(item.pronunciation!,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: onOpen,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      if (item.pronunciation != null)
+                        Text(item.pronunciation!,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant)),
+                      SizedBox(height: compact ? 4 : 8),
+                      if (item.type == DailyContentType.verse)
+                        _VerseTitle(
+                          value: item.title,
+                          fontSize: compact ? 28 : 35,
+                        )
+                      else
+                        Text(item.title,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize:
+                                    item.type == DailyContentType.character
+                                        ? (compact ? 52 : 72)
+                                        : (compact ? 28 : 35),
+                                fontWeight: FontWeight.w600)),
+                      SizedBox(height: compact ? 8 : 18),
+                      Text(item.summary,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant)),
-                    SizedBox(height: compact ? 4 : 8),
-                    Text(item.title,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: item.type == DailyContentType.character
-                                ? (compact ? 52 : 72)
-                                : (compact ? 28 : 35),
-                            fontWeight: FontWeight.w600)),
-                    SizedBox(height: compact ? 8 : 18),
-                    Text(item.summary,
-                        textAlign: TextAlign.center,
-                        maxLines: compact ? 2 : null,
-                        overflow: compact ? TextOverflow.ellipsis : null),
-                    if (item.author != null) ...[
-                      const SizedBox(height: 8),
-                      Text('${item.author} · ${item.sourceTitle ?? ''}',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant))
-                    ],
-                  ]),
+                          maxLines: compact ? 2 : null,
+                          overflow: compact ? TextOverflow.ellipsis : null),
+                      if (item.author != null) ...[
+                        const SizedBox(height: 8),
+                        Text('${item.author} · ${item.sourceTitle ?? ''}',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant))
+                      ],
+                    ]),
+                  ),
                 ),
               ),
             ),
           ],
         ),
       );
+}
+
+class _VerseTitle extends StatelessWidget {
+  const _VerseTitle({required this.value, required this.fontSize});
+
+  final String value;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = _verseLines(value);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var index = 0; index < lines.length; index++)
+          SizedBox(
+            width: double.infinity,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                lines[index],
+                key: ValueKey('daily-verse-line-$index'),
+                maxLines: 1,
+                softWrap: false,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+List<String> _verseLines(String value) {
+  final lines = <String>[];
+  final buffer = StringBuffer();
+  for (final character in value.characters) {
+    buffer.write(character);
+    if ('，。！？；：,.!?;:'.contains(character)) {
+      lines.add(buffer.toString());
+      buffer.clear();
+    }
+  }
+  if (buffer.isNotEmpty) lines.add(buffer.toString());
+  return lines.isEmpty ? [value] : lines;
 }

@@ -24,20 +24,24 @@ class SingleHanValidator {
     if (value.isEmpty) {
       return const InvalidHan(HanInputError.empty);
     }
-    final graphemes = value.characters.toList();
-    if (graphemes.length != 1) {
-      final firstRunes = graphemes.first.runes;
-      if (firstRunes.isEmpty || !_isHan(firstRunes.first)) {
+    final graphemes = value.characters.iterator;
+    graphemes.moveNext();
+    final firstGrapheme = graphemes.current;
+    if (graphemes.moveNext()) {
+      final firstRune = firstGrapheme.runes.firstOrNull;
+      if (firstRune == null || !_isHan(firstRune)) {
         return const InvalidHan(HanInputError.nonHanCharacter);
       }
       return const InvalidHan(HanInputError.multipleCharacters);
     }
-    final runes = graphemes.single.runes.toList();
-    if (runes.isEmpty || !_isHan(runes.first)) {
+    final runes = firstGrapheme.runes.iterator;
+    if (!runes.moveNext() || !_isHan(runes.current)) {
       return const InvalidHan(HanInputError.nonHanCharacter);
     }
-    if (runes.skip(1).any((r) => !_isVariationSelector(r))) {
-      return const InvalidHan(HanInputError.nonHanCharacter);
+    while (runes.moveNext()) {
+      if (!_isVariationSelector(runes.current)) {
+        return const InvalidHan(HanInputError.nonHanCharacter);
+      }
     }
     return ValidHan(value);
   }

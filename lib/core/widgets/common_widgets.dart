@@ -1,5 +1,19 @@
 import 'package:flutter/material.dart';
 
+double scrollProgress(ScrollController controller) {
+  if (!controller.hasClients || controller.position.maxScrollExtent <= 0) {
+    return 0;
+  }
+  return (controller.offset / controller.position.maxScrollExtent).clamp(0, 1);
+}
+
+void restoreScrollProgress(ScrollController controller, double progress) {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!controller.hasClients) return;
+    controller.jumpTo(controller.position.maxScrollExtent * progress);
+  });
+}
+
 class PageHeading extends StatelessWidget {
   const PageHeading(this.title, {super.key, this.trailing});
 

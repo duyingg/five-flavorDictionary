@@ -133,7 +133,7 @@ void main() {
     expect(catalog.difficultByStroke.keys.first, 0);
     final compound =
         catalog.difficultByStroke[0]!.map((entry) => entry.character);
-    expect(compound, containsAll(['兙', '浔', '瓧', '圕']));
+    expect(compound, containsAll(['兙', '浔', '瓧', '圕', '砼']));
     expect(
       catalog.entriesForSyllable('shi').values.expand((values) => values).map(
             (entry) => entry.character,
@@ -150,7 +150,7 @@ void main() {
     final library = entries.singleWhere((entry) => entry.character == '圕');
     expect(library.pinyin, containsAll(['tuǎn', 'tú shū guǎn']));
     final concrete = entries.singleWhere((entry) => entry.character == '砼');
-    expect(concrete.pinyin, contains('tóng'));
+    expect(concrete.pinyin, containsAll(['tóng', 'hùn níng tǔ']));
     expect(concrete.senses.map((sense) => sense.definition).join(),
         contains('混凝土'));
   });

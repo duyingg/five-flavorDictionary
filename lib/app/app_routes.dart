@@ -6,9 +6,12 @@ abstract final class AppRoutes {
   static const history = '/history';
 
   static const characterPattern = '/character/:value';
+  static const wordPattern = '/word/:value';
   static const indexPattern = '/index/:type';
   static const cultureDetailPattern = '/culture/:id';
   static const poetryDetailPattern = '/poetry/:id';
+  static const poetryAuthorPattern = '/poetry-author/:dynasty/:author';
+  static const solarTermPattern = '/solar-term/:name';
   static const settingsPattern = '/settings/:kind';
   static const informationPattern = '/info/:kind';
 
@@ -30,8 +33,15 @@ abstract final class AppRoutes {
 
   static String character(String value) =>
       '/character/${Uri.encodeComponent(value)}';
+  static String word(String value) => '/word/${Uri.encodeComponent(value)}';
   static String index(String type) => '/index/${Uri.encodeComponent(type)}';
   static String cultureDetail(String id) =>
       '/culture/${Uri.encodeComponent(id)}';
   static String poetryDetail(String id) => '/poetry/${Uri.encodeComponent(id)}';
+  static String poetryAuthor(String dynasty, String author) =>
+      '/poetry-author/${Uri.encodeComponent(dynasty)}/${Uri.encodeComponent(author)}';
+  static String solarTerm(String name) =>
+      '/solar-term/${Uri.encodeComponent(name)}';
+
+  static bool isSettingsPath(String path) => path.startsWith('/settings/');
 }

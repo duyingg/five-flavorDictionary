@@ -1,8 +1,7 @@
 name: wuwei_dictionary
 description: 五味字典——离线中文单字典、汉字学习与传统文化应用
 publish_to: "none"
-version: 1.0.1+2
-
+version: 1.1.0+12
 environment:
   sdk: ">=3.4.0 <4.0.0"
 
@@ -42,11 +41,13 @@ flutter:
   assets:
     - assets/images/feedback_qr.png
     - assets/data/chinese_entries_v3.json
+    - assets/data/word_entries.wvd
     - assets/data/polyphonic_lessons.json
     - assets/data/daily_content.json
     - assets/data/culture_items_v2.json
-    - assets/data/poetry_items.json
-    - assets/data/poetry_items_full.json
+    - assets/data/culture_passages/
+    - assets/data/poetry_items.wvp
+    - assets/data/poetry_items_full.wvp
     - Aatime/makemeahanzi-master/svgs/
     - Aatime/makemeahanzi-master/COPYING
     - Aatime/makemeahanzi-master/LGPL
@@ -61,3 +62,7 @@ flutter:
     - assets/skins/bundled/松月夜读.hanzi-skin
     - Aatime/chinese-dictionary-main/LICENSE
     - Aatime/chinese-poetry-master/LICENSE
+    - Aatime/chinese-ancient-poetry-translation-master/LICENSE
+    - Aatime/chinese-classical-corpus-main/LICENSE
+    - Aatime/Classical-Modern-data/LICENSE
+    - Aatime/rime-wubi/LICENSE

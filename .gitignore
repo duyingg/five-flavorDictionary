@@ -52,6 +52,17 @@ app.*.map.json
 *.pfx
 /release/
 
+# Downloaded source corpora and review staging. Generated application assets
+# are committed separately under assets/data.
+/Aatime/ACP-RAG-main/
+/Aatime/Classical-Modern-main.zip
+/Aatime/Classical-Modern-data/
+/Aatime/chinese-ancient-poetry-translation-master/
+/Aatime/chinese-classical-corpus-main/
+/Aatime/rime-wubi/
+/docs/materials_staging/
+/docs/垃圾/
+
 # Local product documents, design workspaces and presentation exports
 /项目文档/
 /UI设计工作区/

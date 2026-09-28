@@ -12,6 +12,9 @@
   .\build-apk.ps1 -Mode split
 
 .EXAMPLE
+  .\build-apk.ps1 -VersionIncrement patch
+
+.EXAMPLE
   .\build-apk.ps1 -RequireReleaseSigning
 
 .NOTES
@@ -24,6 +27,8 @@
 param(
     [ValidateSet('universal', 'split')]
     [string]$Mode = 'universal',
+    [ValidateSet('build', 'patch', 'minor', 'major')]
+    [string]$VersionIncrement = 'build',
     [switch]$SkipTests,
     [switch]$ValidateOnly,
     [switch]$RequireReleaseSigning,
@@ -35,6 +40,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+$utf8Encoding = [System.Text.UTF8Encoding]::new($false)
+[Console]::InputEncoding = $utf8Encoding
+[Console]::OutputEncoding = $utf8Encoding
+$OutputEncoding = $utf8Encoding
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+    $PSNativeCommandArgumentPassing = 'Standard'
+}
 
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $pubspecPath = Join-Path $projectRoot 'pubspec.yaml'
@@ -44,6 +56,9 @@ $mutex = $null
 $buildLock = $null
 $mappedDrive = $null
 $originalLocation = Get-Location
+$originalPubspecContent = $null
+$versionChanged = $false
+$buildCompleted = $false
 
 function Write-Step([string]$Message) {
     Write-Host "`n==> $Message" -ForegroundColor Cyan
@@ -114,7 +129,13 @@ function Use-CompatibleJava {
 }
 
 function Assert-ProjectLayout {
-    foreach ($required in @($pubspecPath, $lockPath, $gradlePath, (Join-Path $projectRoot 'lib\main.dart'))) {
+    foreach ($required in @(
+        $pubspecPath,
+        $lockPath,
+        $gradlePath,
+        (Join-Path $projectRoot 'lib\main.dart'),
+        (Join-Path $projectRoot 'assets\data\word_entries.wvd')
+    )) {
         if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
             throw "Required project file is missing: $required"
         }
@@ -127,10 +148,16 @@ function Assert-ProjectLayout {
 function Assert-NoMergeConflicts {
     $git = Get-Command git -ErrorAction SilentlyContinue
     if ($git) {
-        $unmerged = & $git.Source -C $projectRoot ls-files -u
+        $gitOptions = @(
+            '-c', "safe.directory=$projectRoot",
+            '-c', 'core.autocrlf=false',
+            '-c', 'core.whitespace=cr-at-eol',
+            '-C', $projectRoot
+        )
+        $unmerged = & $git.Source @gitOptions ls-files -u
         if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect Git merge state.' }
         if ($unmerged) { throw 'Git contains unresolved merge entries.' }
-        & $git.Source -C $projectRoot diff --check
+        & $git.Source @gitOptions diff --check
         if ($LASTEXITCODE -ne 0) { throw 'Git diff check found whitespace errors or conflict markers.' }
     }
 
@@ -153,7 +180,13 @@ function Assert-NoMergeConflicts {
 function Assert-NoTrackedSecrets {
     $git = Get-Command git -ErrorAction SilentlyContinue
     if (-not $git) { return }
-    $tracked = & $git.Source -C $projectRoot ls-files
+    $gitOptions = @(
+        '-c', "safe.directory=$projectRoot",
+        '-c', 'core.autocrlf=false',
+        '-c', 'core.whitespace=cr-at-eol',
+        '-C', $projectRoot
+    )
+    $tracked = & $git.Source @gitOptions ls-files
     if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect tracked files.' }
     $sensitive = $tracked | Where-Object {
         $_ -match '(^|/)(key\.properties|.*\.(jks|keystore|p12|pfx|pem))$'
@@ -180,9 +213,55 @@ function Get-ShortProjectRoot {
 }
 
 function Get-PackageVersion {
-    $match = [regex]::Match((Get-Content -LiteralPath $pubspecPath -Raw), '(?m)^version:\s*([^\s]+)')
-    if (-not $match.Success) { throw 'pubspec.yaml does not contain a version.' }
-    return $match.Groups[1].Value
+    $content = [System.IO.File]::ReadAllText(
+        $pubspecPath,
+        [System.Text.Encoding]::UTF8
+    )
+    $match = [regex]::Match(
+        $content,
+        '(?m)^version:\s*(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)\+(?<build>\d+)\s*$'
+    )
+    if (-not $match.Success) {
+        throw 'pubspec.yaml version must use the form major.minor.patch+build.'
+    }
+    return [pscustomobject]@{
+        Major = [int]$match.Groups['major'].Value
+        Minor = [int]$match.Groups['minor'].Value
+        Patch = [int]$match.Groups['patch'].Value
+        Build = [int]$match.Groups['build'].Value
+    }
+}
+
+function Get-NextPackageVersion([object]$Current, [string]$Increment) {
+    $major = $Current.Major
+    $minor = $Current.Minor
+    $patch = $Current.Patch
+    switch ($Increment) {
+        'patch' { $patch++ }
+        'minor' { $minor++; $patch = 0 }
+        'major' { $major++; $minor = 0; $patch = 0 }
+    }
+    $build = $Current.Build + 1
+    return [pscustomobject]@{
+        Name = "$major.$minor.$patch"
+        Build = $build
+        Full = "$major.$minor.$patch+$build"
+    }
+}
+
+function Set-PackageVersion([string]$Version) {
+    $content = [System.IO.File]::ReadAllText(
+        $pubspecPath,
+        [System.Text.Encoding]::UTF8
+    )
+    $versionPattern = [regex]::new('(?m)^version:\s*[^\s]+\s*$')
+    $updated = $versionPattern.Replace($content, "version: $Version", 1)
+    if ($updated -eq $content) { throw 'Unable to update pubspec.yaml version.' }
+    [System.IO.File]::WriteAllText(
+        $pubspecPath,
+        $updated,
+        [System.Text.UTF8Encoding]::new($false)
+    )
 }
 
 try {
@@ -248,9 +327,9 @@ try {
     Write-Step 'Checking locked dependencies'
     Invoke-Checked -FilePath $flutter pub get --enforce-lockfile
 
-    Write-Step 'Checking formatting without changing source files'
+    Write-Step 'Formatting Dart sources'
     $formatTargets = @('lib', 'test', 'tool') | Where-Object { Test-Path -LiteralPath $_ }
-    Invoke-Checked -FilePath $dart format --output=none --set-exit-if-changed @formatTargets
+    Invoke-Checked -FilePath $dart format @formatTargets
 
     Write-Step 'Running static analysis'
     Invoke-Checked -FilePath $flutter analyze --no-pub
@@ -265,8 +344,22 @@ try {
         exit 0
     }
 
+    $originalPubspecContent = [System.IO.File]::ReadAllText(
+        $pubspecPath,
+        [System.Text.Encoding]::UTF8
+    )
+    $currentVersion = Get-PackageVersion
+    $nextVersion = Get-NextPackageVersion $currentVersion $VersionIncrement
+    Write-Step "Incrementing package version to $($nextVersion.Full)"
+    Set-PackageVersion $nextVersion.Full
+    $versionChanged = $true
+
     Write-Step 'Building Android release APK'
-    $buildArguments = @('build', 'apk', '--release', '--no-pub')
+    $buildArguments = @(
+        'build', 'apk', '--release', '--no-pub',
+        "--build-name=$($nextVersion.Name)",
+        "--build-number=$($nextVersion.Build)"
+    )
     if ($Mode -eq 'split') { $buildArguments += '--split-per-abi' }
     Invoke-Checked -FilePath $flutter @buildArguments
 
@@ -286,7 +379,7 @@ try {
         Join-Path $projectRoot $OutputDirectory
     }
     New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
-    $version = Get-PackageVersion
+    $version = $nextVersion.Full
     $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $manifestEntries = @()
     foreach ($apk in $apkFiles) {
@@ -311,13 +404,19 @@ try {
         $previousErrorActionPreference = $ErrorActionPreference
         try {
             $ErrorActionPreference = 'Continue'
-            $revisionValue = & $git.Source -C $projectRoot rev-parse --verify HEAD 2>$null
+            $gitOptions = @(
+                '-c', "safe.directory=$projectRoot",
+                '-c', 'core.autocrlf=false',
+                '-c', 'core.whitespace=cr-at-eol',
+                '-C', $projectRoot
+            )
+            $revisionValue = & $git.Source @gitOptions rev-parse --verify HEAD 2>$null
             $revisionExitCode = $LASTEXITCODE
         } finally {
             $ErrorActionPreference = $previousErrorActionPreference
         }
         if ($revisionExitCode -eq 0) { $revision = $revisionValue.Trim() }
-        $workingTree = if (& $git.Source -C $projectRoot status --porcelain) { 'dirty' } else { 'clean' }
+        $workingTree = if (& $git.Source @gitOptions status --porcelain) { 'dirty' } else { 'clean' }
     }
     $manifest = [ordered]@{
         package = 'wuwei_dictionary'
@@ -337,8 +436,17 @@ try {
         Write-Host "  $($entry.file)  SHA256 $($entry.sha256)"
     }
     Write-Host "  Manifest: $(Split-Path -Leaf $manifestPath)"
+    $buildCompleted = $true
 } finally {
     Set-Location $originalLocation
+    if ($versionChanged -and -not $buildCompleted -and $null -ne $originalPubspecContent) {
+        [System.IO.File]::WriteAllText(
+            $pubspecPath,
+            $originalPubspecContent,
+            [System.Text.UTF8Encoding]::new($false)
+        )
+        Write-Warning 'Build did not complete; pubspec.yaml version was restored.'
+    }
     if ($buildLock) { $buildLock.Dispose() }
     if ($mappedDrive) { & subst.exe $mappedDrive /D | Out-Null }
     if ($mutex) {

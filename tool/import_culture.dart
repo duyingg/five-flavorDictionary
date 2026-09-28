@@ -1,7 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:wuwei_dictionary/features/culture/school_books.dart';
+
 void main() {
+  final passageDirectory = Directory('assets/data/culture_passages');
+  if (passageDirectory.existsSync()) {
+    passageDirectory.deleteSync(recursive: true);
+  }
+  passageDirectory.createSync(recursive: true);
+
   final surnameFile = File('Aatime/百家姓.txt');
   if (!surnameFile.existsSync()) {
     stderr.writeln('未找到 Aatime/百家姓.txt');
@@ -41,6 +49,7 @@ void main() {
 
   final items = <Map<String, dynamic>>[
     ..._schools,
+    ..._classicalItems(passageDirectory),
     {
       'id': 'other-surnames',
       'category': 'other',
@@ -51,16 +60,6 @@ void main() {
       'readingContent': surnameReading,
       'sourceId': 'user-provided-baijiaxing',
     },
-    for (final title in ['千字文', '三字经', '道德经'])
-      {
-        'id': 'other-placeholder-${_stableId(title)}',
-        'category': 'other',
-        'title': title,
-        'subtitle': '内容待导入',
-        'summary': '条目已建立，正文暂未实装。',
-        'content': '',
-        'sourceId': 'placeholder',
-      },
     {
       'id': 'other-solar',
       'category': 'other',
@@ -74,8 +73,8 @@ void main() {
       'id': 'other-festival',
       'category': 'other',
       'title': '传统节日',
-      'subtitle': '按年内时序排列',
-      'summary': '左侧列节日，右侧列时间，暂不加解释。',
+      'subtitle': '岁时传统与民族节庆',
+      'summary': '收录岁时节日和少数民族代表性节庆，了解日期、习俗与文化含义。',
       'content': _festivals,
       'sourceId': 'app-original',
     },
@@ -88,13 +87,15 @@ void main() {
       'content': '典故是具有出处的故事或词句，常被后世文章引用。后续可按人物、时代和主题扩展。',
       'sourceId': 'app-original',
     },
+    if (_youmengyingItem() case final item?) item,
     {
       'id': 'other-title',
       'category': 'other',
       'title': '古代称谓',
-      'subtitle': '姓名、亲属与礼貌称呼',
-      'summary': '读懂古文中的人物关系。',
-      'content': '古代称谓因身份、年龄、关系和场合而异。理解称谓有助于把握文献中的礼仪与人物关系。',
+      'subtitle': '亲属关系、名号与谦敬用语',
+      'summary': '从“我”出发辨认父系、母系和堂表亲属，并了解名、字、号及谦敬称呼。',
+      'content':
+          '古代称谓须结合说话者、亲属路径、身份及时代来理解。本页提供父系与母系关系图、常见亲属称谓表，以及名、字、号、官爵、谥号和谦敬用语说明。',
       'sourceId': 'app-original',
     },
   ];
@@ -103,6 +104,416 @@ void main() {
     '${const JsonEncoder.withIndent('  ').convert(items)}\n',
   );
   stdout.writeln('导入文化条目 ${items.length} 条。');
+}
+
+List<Map<String, dynamic>> _classicalItems(Directory outputDirectory) {
+  const root = 'Aatime/Classical-Modern-data/双语数据';
+  const books = [
+    (
+      directory: '论语',
+      id: 'lunyu',
+      title: '论语',
+      subtitle: '孔子及其弟子言行录',
+      summary: '收录《论语》原文与逐段白话翻译。',
+    ),
+    (
+      directory: '孟子',
+      id: 'mengzi',
+      title: '孟子',
+      subtitle: '仁政、民本与性善之论',
+      summary: '按篇章收录《孟子》原文与白话翻译。',
+    ),
+    (
+      directory: '大学章句集注',
+      id: 'daxue',
+      title: '大学',
+      subtitle: '明明德，亲民，止于至善',
+      summary: '收录《大学章句集注》原文与逐章白话翻译。',
+    ),
+    (
+      directory: '中庸',
+      id: 'zhongyong',
+      title: '中庸',
+      subtitle: '致中和，天地位焉',
+      summary: '收录《中庸》原文与逐章白话翻译。',
+    ),
+    (
+      directory: '三字经',
+      id: 'sanzijing',
+      title: '三字经',
+      subtitle: '蒙学识字与伦理读本',
+      summary: '收录《三字经》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '世说新语',
+      id: 'shishuo-xinyu',
+      title: '世说新语',
+      subtitle: '魏晋人物言行与轶事',
+      summary: '收录《世说新语》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '列子',
+      id: 'liezi',
+      title: '列子',
+      subtitle: '道家寓言与思想',
+      summary: '收录《列子》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '千字文',
+      id: 'qianziwen',
+      title: '千字文',
+      subtitle: '四字韵文蒙学读本',
+      summary: '收录《千字文》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '周礼',
+      id: 'zhouli',
+      title: '周礼',
+      subtitle: '古代官制与礼制文献',
+      summary: '收录《周礼》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '墨子',
+      id: 'mozi',
+      title: '墨子',
+      subtitle: '兼爱、非攻与尚贤',
+      summary: '收录《墨子》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '天工开物',
+      id: 'tiangong-kaiwu',
+      title: '天工开物',
+      subtitle: '明代农工技术百科',
+      summary: '收录《天工开物》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '孙子兵法',
+      id: 'sunzi-bingfa',
+      title: '孙子兵法',
+      subtitle: '兵家战略经典',
+      summary: '收录《孙子兵法》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '孙膑兵法',
+      id: 'sunbin-bingfa',
+      title: '孙膑兵法',
+      subtitle: '战国兵家著作',
+      summary: '收录《孙膑兵法》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '尚书',
+      id: 'shangshu',
+      title: '尚书',
+      subtitle: '上古政事文献汇编',
+      summary: '收录《尚书》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '山海经',
+      id: 'shanhaijing',
+      title: '山海经',
+      subtitle: '山川物产与神话地理',
+      summary: '收录《山海经》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '庄子',
+      id: 'zhuangzi',
+      title: '庄子',
+      subtitle: '道家哲思与寓言',
+      summary: '收录《庄子》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '弟子规',
+      id: 'dizigui',
+      title: '弟子规',
+      subtitle: '蒙学伦理与日常规范',
+      summary: '收录《弟子规》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '徐霞客游记',
+      id: 'xuxiake-youji',
+      title: '徐霞客游记',
+      subtitle: '地理考察与旅行日记',
+      summary: '收录《徐霞客游记》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '心经',
+      id: 'xinjing',
+      title: '心经',
+      subtitle: '般若类佛教经典',
+      summary: '收录《心经》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '抱朴子',
+      id: 'baopuzi',
+      title: '抱朴子',
+      subtitle: '道教思想与魏晋论说',
+      summary: '收录《抱朴子》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '文心雕龙',
+      id: 'wenxin-diaolong',
+      title: '文心雕龙',
+      subtitle: '中国古代文学理论',
+      summary: '收录《文心雕龙》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '梦溪笔谈',
+      id: 'mengxi-bitan',
+      title: '梦溪笔谈',
+      subtitle: '北宋科学与见闻笔记',
+      summary: '收录《梦溪笔谈》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '棋经十三篇',
+      id: 'qijing-shisanpian',
+      title: '棋经十三篇',
+      subtitle: '古代围棋理论著作',
+      summary: '收录《棋经十三篇》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '礼记',
+      id: 'liji',
+      title: '礼记',
+      subtitle: '先秦至秦汉礼制文献',
+      summary: '收录《礼记》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '易传',
+      id: 'yizhuan',
+      title: '易传',
+      subtitle: '阐释《周易》经文的十翼',
+      summary: '收录《易传》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '老子',
+      id: 'laozi',
+      title: '老子',
+      subtitle: '又称《道德经》',
+      summary: '收录《老子》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '荀子',
+      id: 'xunzi',
+      title: '荀子',
+      subtitle: '先秦儒家论说著作',
+      summary: '收录《荀子》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '菜根谭',
+      id: 'caigentan',
+      title: '菜根谭',
+      subtitle: '处世修养格言集',
+      summary: '收录《菜根谭》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '韩非子',
+      id: 'hanfeizi',
+      title: '韩非子',
+      subtitle: '法家政治哲学著作',
+      summary: '收录《韩非子》原文与逐段白话翻译。'
+    ),
+    (
+      directory: '鬼谷子',
+      id: 'guiguzi',
+      title: '鬼谷子',
+      subtitle: '纵横说辩与谋略著作',
+      summary: '收录《鬼谷子》原文与逐段白话翻译。'
+    ),
+  ];
+  final result = <Map<String, dynamic>>[];
+  for (final book in books) {
+    final passages = _bilingualPassages(
+      Directory('$root/${book.directory}'),
+      book: book.title,
+      perLine: true,
+    );
+    if (passages.isEmpty) continue;
+    final itemId = 'classic-${book.id}';
+    final passageAsset = 'assets/data/culture_passages/$itemId.json';
+    File('${outputDirectory.path}/$itemId.json').writeAsStringSync(
+      '${const JsonEncoder.withIndent('  ').convert(passages)}\n',
+    );
+    result.add({
+      'id': itemId,
+      'category': primerBookIds.contains(itemId) ? 'other' : 'classics',
+      'title': book.title,
+      'subtitle': book.subtitle,
+      'summary': book.summary,
+      // Passages are the canonical full text. Keeping only the first aligned
+      // pair in these compatibility fields avoids duplicating very large
+      // books such as Xu Xiake's Travels in the packaged JSON.
+      'content': passages.first['original'],
+      'translation': passages.first['translation'],
+      'passagesAsset': passageAsset,
+      'sourceId': 'NiuTrans/Classical-Modern (MIT)',
+    });
+  }
+  return result;
+}
+
+List<Map<String, String>> _bilingualPassages(
+  Directory directory, {
+  required String book,
+  required bool perLine,
+}) {
+  if (!directory.existsSync()) return const [];
+  final sourceFiles = directory
+      .listSync(recursive: true)
+      .whereType<File>()
+      .where((file) => file.uri.pathSegments.last == 'source.txt')
+      .toList()
+    ..sort((a, b) => _sectionSortKey(directory, book, a)
+        .compareTo(_sectionSortKey(directory, book, b)));
+  final result = <Map<String, String>>[];
+  for (final sourceFile in sourceFiles) {
+    final targetFile = File('${sourceFile.parent.path}/target.txt');
+    if (!targetFile.existsSync()) continue;
+    final sources =
+        sourceFile.readAsLinesSync().map((line) => line.trim()).toList();
+    final targets =
+        targetFile.readAsLinesSync().map((line) => line.trim()).toList();
+    if (sources.length != targets.length) {
+      throw FormatException('古籍双语行数不匹配：${sourceFile.path}');
+    }
+    final relative = sourceFile.parent.path
+        .substring(directory.path.length)
+        .replaceAll(RegExp(r'^[\\/]'), '')
+        .replaceAll('\\', ' · ')
+        .replaceAll('/', ' · ');
+    final pairs = <(String, String)>[
+      for (var index = 0; index < sources.length; index++)
+        if (sources[index].isNotEmpty && targets[index].isNotEmpty)
+          (sources[index], targets[index]),
+    ];
+    if (pairs.isEmpty) continue;
+    if (perLine) {
+      for (var index = 0; index < pairs.length; index++) {
+        result.add({
+          'heading': index == 0 ? relative : '',
+          'original': pairs[index].$1,
+          'translation': pairs[index].$2,
+        });
+      }
+    } else {
+      result.add({
+        'heading': relative,
+        'original': pairs.map((pair) => pair.$1).join(),
+        'translation': pairs.map((pair) => pair.$2).join(),
+      });
+    }
+  }
+  return result;
+}
+
+String _sectionSortKey(Directory root, String book, File file) {
+  final relative = file.parent.path
+      .substring(root.path.length)
+      .replaceAll(RegExp(r'^[\\/]'), '');
+  final parts = relative.split(RegExp(r'[\\/]'));
+  final bookOrder = switch (book) {
+    '论语' => const [
+        '学而篇',
+        '为政篇',
+        '八佾篇',
+        '里仁篇',
+        '公冶长篇',
+        '雍也篇',
+        '述而篇',
+        '泰伯篇',
+        '子罕篇',
+        '乡党篇',
+        '先进篇',
+        '颜渊篇',
+        '子路篇',
+        '宪问篇',
+        '卫灵公篇',
+        '季氏篇',
+        '阳货篇',
+        '微子篇',
+        '子张篇',
+        '尧曰篇',
+      ],
+    '孟子' => const [
+        '梁惠王章句上',
+        '梁惠王章句下',
+        '公孙丑章句上',
+        '公孙丑章句下',
+        '滕文公章句上',
+        '滕文公章句下',
+        '离娄章句上',
+        '离娄章句下',
+        '万章章句上',
+        '万章章句下',
+        '告子章句上',
+        '告子章句下',
+        '尽心章句上',
+        '尽心章句下',
+      ],
+    _ => const <String>[],
+  };
+  final first = bookOrder.indexOf(parts.first);
+  final firstOrder = first < 0 ? _chineseOrdinal(parts.first) : first + 1;
+  final rest = parts.skip(1).map(_chineseOrdinal).join('-');
+  return '${firstOrder.toString().padLeft(3, '0')}-$rest-$relative';
+}
+
+int _chineseOrdinal(String value) {
+  final text = value.replaceAll(RegExp(r'[第章节篇]'), '');
+  const digits = {
+    '一': 1,
+    '二': 2,
+    '三': 3,
+    '四': 4,
+    '五': 5,
+    '六': 6,
+    '七': 7,
+    '八': 8,
+    '九': 9,
+  };
+  final ten = text.indexOf('十');
+  if (ten < 0) return digits[text] ?? 999;
+  final tens = ten == 0 ? 1 : (digits[text.substring(0, ten)] ?? 0);
+  final units =
+      ten == text.length - 1 ? 0 : (digits[text.substring(ten + 1)] ?? 0);
+  return tens * 10 + units;
+}
+
+Map<String, dynamic>? _youmengyingItem() {
+  final file = File('Aatime/chinese-poetry-master/幽梦影/youmengying.json');
+  if (!file.existsSync()) return null;
+  final decoded = jsonDecode(file.readAsStringSync());
+  if (decoded is! List) return null;
+  final content = <String>[];
+  final notes = <String>[];
+  var index = 0;
+  for (final value in decoded.whereType<Map>()) {
+    final text = value['content']?.toString().trim() ?? '';
+    if (text.isEmpty) continue;
+    index++;
+    content.add('第$index则\n$text');
+    final rawComments = value['comment'];
+    final comments = switch (rawComments) {
+      List values => values.map((item) => item.toString().trim()),
+      String text => [text.trim()],
+      _ => const <String>[],
+    }
+        .where((item) => item.isNotEmpty)
+        .toList();
+    if (comments.isNotEmpty) {
+      notes.add('第$index则\n${comments.join('\n')}');
+    }
+  }
+  if (content.isEmpty) return null;
+  return {
+    'id': 'other-youmengying',
+    'category': 'classics',
+    'title': '幽梦影',
+    'subtitle': '清代随笔与原书评语',
+    'summary': '收录原文，并可在“注释”模式查看原书评语。',
+    'content': content.join('\n\n'),
+    'notes': notes.join('\n\n'),
+    'sourceId': 'chinese-poetry (MIT)',
+  };
 }
 
 List<List<(String, String)>> _surnameSentences(List<(String, String)> entries) {
@@ -127,120 +538,9 @@ List<List<(String, String)>> _surnameSentences(List<(String, String)> entries) {
   return lines;
 }
 
-String _stableId(String value) => value.runes
-    .fold<int>(0, (hash, rune) => (hash * 31 + rune) & 0x7fffffff)
-    .toRadixString(16);
-
-const _schools = <Map<String, dynamic>>[
-  {
-    'id': 'school-ru',
-    'category': 'schools',
-    'title': '儒家',
-    'subtitle': '仁者爱人，克己复礼',
-    'summary': '代表人物：孔子、孟子、荀子',
-    'content': '儒家重视仁义礼智信，强调个人修养、家庭伦理与社会责任。',
-    'sourceId': 'app-original'
-  },
-  {
-    'id': 'school-dao',
-    'category': 'schools',
-    'title': '道家',
-    'subtitle': '道法自然，无为而治',
-    'summary': '代表人物：老子、庄子',
-    'content': '道家以“道”为核心，强调顺应自然规律与精神自由。',
-    'sourceId': 'app-original'
-  },
-  {
-    'id': 'school-mo',
-    'category': 'schools',
-    'title': '墨家',
-    'subtitle': '兼爱非攻，尚贤尚同',
-    'summary': '代表人物：墨子',
-    'content': '墨家主张兼爱、非攻、节用和尚贤，重视实践效用。',
-    'sourceId': 'app-original'
-  },
-  {
-    'id': 'school-fa',
-    'category': 'schools',
-    'title': '法家',
-    'subtitle': '以法治国，赏罚分明',
-    'summary': '代表人物：韩非、商鞅、申不害',
-    'content': '法家强调法、术、势与治理效能。',
-    'sourceId': 'app-original'
-  },
-  {
-    'id': 'school-ming',
-    'category': 'schools',
-    'title': '名家',
-    'subtitle': '辨名析理，察同异',
-    'summary': '代表人物：惠施、公孙龙',
-    'content': '名家关注名实关系、概念界限和辩论方法。',
-    'sourceId': 'app-original'
-  },
-  {
-    'id': 'school-yinyang',
-    'category': 'schools',
-    'title': '阴阳家',
-    'subtitle': '阴阳消长，五行相生',
-    'summary': '代表人物：邹衍',
-    'content': '阴阳家以阴阳、五行解释自然、历法和人事变化。',
-    'sourceId': 'app-original'
-  },
-  {
-    'id': 'school-zongheng',
-    'category': 'schools',
-    'title': '纵横家',
-    'subtitle': '合纵连横，因势设谋',
-    'summary': '代表人物：苏秦、张仪',
-    'content': '纵横家长于外交辩说、形势判断和国际策略。',
-    'sourceId': 'app-original'
-  },
-  {
-    'id': 'school-za',
-    'category': 'schools',
-    'title': '杂家',
-    'subtitle': '兼儒墨，合名法',
-    'summary': '代表人物：吕不韦、尸佼',
-    'content': '杂家博采诸家所长，尝试建立综合性的治理与知识体系。',
-    'sourceId': 'app-original'
-  },
-  {
-    'id': 'school-nong',
-    'category': 'schools',
-    'title': '农家',
-    'subtitle': '播百谷，劝耕桑',
-    'summary': '代表人物：许行',
-    'content': '农家重视农业生产、农时、土地和自给经济。',
-    'sourceId': 'app-original'
-  },
-  {
-    'id': 'school-xiaoshuo',
-    'category': 'schools',
-    'title': '小说家',
-    'subtitle': '街谈巷语，道听途说',
-    'summary': '代表：稗官采集的民间言论',
-    'content': '小说家汇集民间故事、风俗与议论，保留社会生活的侧面记录。',
-    'sourceId': 'app-original'
-  },
-  {
-    'id': 'school-bing',
-    'category': 'schools',
-    'title': '兵家',
-    'subtitle': '知己知彼，百战不殆',
-    'summary': '代表人物：孙武、吴起、孙膑',
-    'content': '兵家研究战争规律、组织策略、地形与谋略。',
-    'sourceId': 'app-original'
-  },
-  {
-    'id': 'school-yi',
-    'category': 'schools',
-    'title': '医家',
-    'subtitle': '辨证论治，养生济人',
-    'summary': '代表人物：扁鹊、仓公',
-    'content': '医家累积疾病诊疗、药物、养生和生命观念方面的知识。',
-    'sourceId': 'app-original'
-  },
-];
+List<Map<String, dynamic>> get _schools =>
+    (jsonDecode(File('tool/culture_schools.json').readAsStringSync()) as List)
+        .cast<Map<String, dynamic>>();
 
 const _solarTerms = '''
 立春|2月3–5日
@@ -277,23 +577,29 @@ const _solarTerms = '''
 
 const _festivals = '''
 春节|农历正月初一
+破五|农历正月初五
 人日|农历正月初七
 元宵节|农历正月十五
 填仓节|农历正月廿五
+中和节|农历二月初一
 龙抬头|农历二月初二
-花朝节|农历二月十二或十五
+花朝节|农历二月初二、十二、十五或廿五
+春社日|立春后第五个戊日
 上巳节|农历三月初三
 寒食节|清明前一或二日
 清明节|公历4月4–6日
+佛诞节|农历四月初八（汉传佛教）
 端午节|农历五月初五
+六月六|农历六月初六
 七夕节|农历七月初七
 中元节|农历七月十五
 中秋节|农历八月十五
+秋社日|立秋后第五个戊日
 重阳节|农历九月初九
 寒衣节|农历十月初一
 下元节|农历十月十五
 冬至节|公历12月21–23日
 腊八节|农历腊月初八
-小年|农历腊月廿三或廿四
+小年|农历腊月廿三、廿四等
 除夕|农历腊月最后一日
 ''';
