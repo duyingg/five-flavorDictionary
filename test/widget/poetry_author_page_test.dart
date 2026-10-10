@@ -104,6 +104,8 @@ void main() {
     await pumpUntilFound(tester, find.byType(TextField));
     await tester.enterText(find.byType(TextField), '李白');
     await pumpUntilFound(tester, find.widgetWithText(TextButton, '李白'));
+    expect(find.byTooltip('收藏诗词'), findsNothing);
+    expect(find.byTooltip('取消收藏诗词'), findsNothing);
     expect(find.text('有注释'), findsNothing);
     expect(find.text('有翻译'), findsNothing);
     expect(find.text('有赏析'), findsNothing);

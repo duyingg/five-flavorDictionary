@@ -31,22 +31,28 @@ class AssetDailyContentRepository implements DailyContentRepository {
 
   Future<Map<DailyContentType, List<DailyContent>>> _read() async {
     final raw = await rootBundle.loadString('assets/data/daily_content.json');
-    final items = (jsonDecode(raw) as List)
-        .map((item) => DailyContent.fromJson(item as Map<String, dynamic>))
-        .where((item) => item.id.isNotEmpty && item.sourceId.isNotEmpty)
-        .toList(growable: false);
-    return {
-      for (final type in DailyContentType.values)
-        type: [
-          for (final item in items)
-            if (item.type == type) item
-        ],
-    };
+    return compute(_decodeDailyContents, raw);
   }
 
   @override
   Future<List<DailyContent>> getByType(DailyContentType type) async =>
       (await _load())[type]!;
+}
+
+Map<DailyContentType, List<DailyContent>> _decodeDailyContents(String raw) {
+  final byType = {
+    for (final type in DailyContentType.values) type: <DailyContent>[],
+  };
+  for (final record in jsonDecode(raw) as List) {
+    final item = DailyContent.fromJson(record as Map<String, dynamic>);
+    if (item.id.isNotEmpty && item.sourceId.isNotEmpty) {
+      byType[item.type]!.add(item);
+    }
+  }
+  return {
+    for (final entry in byType.entries)
+      entry.key: List<DailyContent>.unmodifiable(entry.value),
+  };
 }
 
 abstract interface class CultureRepository {

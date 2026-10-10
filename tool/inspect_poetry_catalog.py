@@ -38,11 +38,13 @@ def records(path):
             value, cursor = read_string(data, cursor)
             strings.append(value)
         yield {
+            "sequence": fields[0],
             "author": shared[fields[2]],
             "source": shared[fields[9]],
             "id": strings[0],
             "title": strings[1],
             "content": strings[3],
+            "translation": strings[5],
         }
 
 

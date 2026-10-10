@@ -20,16 +20,31 @@ class DailyContentService {
         '${date.day.toString().padLeft(2, '0')}|$namespace',
       );
 
-  DailyContent? select(List<DailyContent> items, DateTime date,
-      DailyContentType type, int offset) {
-    if (items.isEmpty) return null;
-    final dailyOrder = [...items]
-      ..sort((left, right) => left.id.compareTo(right.id))
-      ..shuffle(Random(stableHash('daily-content-${type.name}')));
+  /// Walks every catalog position once before repeating, in a stable
+  /// pseudo-random order that does not allocate or sort the full word library.
+  int selectIndex(
+      int length, DateTime date, DailyContentType type, int offset) {
+    if (length <= 0) throw RangeError.value(length, 'length');
+    if (length == 1) return 0;
     final dayNumber = DateTime.utc(date.year, date.month, date.day)
         .difference(DateTime.utc(1970))
         .inDays;
-    return dailyOrder[(dayNumber + offset) % dailyOrder.length];
+    final start = stableHash('daily-start-${type.name}') % length;
+    var step = stableHash('daily-step-${type.name}') % length;
+    if (step == 0) step = 1;
+    while (_greatestCommonDivisor(step, length) != 1) {
+      step = step == length - 1 ? 1 : step + 1;
+    }
+    return (start + ((dayNumber + offset) % length) * step) % length;
+  }
+
+  int _greatestCommonDivisor(int left, int right) {
+    while (right != 0) {
+      final remainder = left % right;
+      left = right;
+      right = remainder;
+    }
+    return left;
   }
 
   List<ChineseEntry> selectCharacters(

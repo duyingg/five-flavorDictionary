@@ -50,7 +50,7 @@ _ContextualPinyinData _decodeContextualPinyinData(
   (String, String, String, String, HanScriptConverter) source,
 ) =>
     _ContextualPinyinData.decode(
-      '${source.$1}\n${source.$2}',
+      [source.$1, source.$2],
       source.$3,
       source.$4,
       converter: source.$5,
@@ -176,7 +176,7 @@ class _ContextualPinyinData {
   final HanScriptConverter converter;
 
   factory _ContextualPinyinData.decode(
-    String exactRaw,
+    List<String> exactRaws,
     String contextRaw,
     String phraseRaw, {
     HanScriptConverter converter = const HanScriptConverter.empty(),
@@ -191,12 +191,14 @@ class _ContextualPinyinData {
       candidates.add(ExactPinyinLine(characters: characters, pinyin: readings));
     }
 
-    for (final line in exactRaw.split('\n')) {
-      final separator = line.indexOf('\t');
-      if (separator <= 0) continue;
-      final text = line.substring(0, separator);
-      final readings = line.substring(separator + 1).trim().split(' ');
-      addExact(converter.toSimplified(text), readings);
+    for (final exactRaw in exactRaws) {
+      for (final line in exactRaw.split('\n')) {
+        final separator = line.indexOf('\t');
+        if (separator <= 0) continue;
+        final text = line.substring(0, separator);
+        final readings = line.substring(separator + 1).trim().split(' ');
+        addExact(converter.toSimplified(text), readings);
+      }
     }
     for (final candidates in exact.values) {
       candidates.sort(

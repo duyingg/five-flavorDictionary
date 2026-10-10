@@ -25,7 +25,7 @@ class SkinBackdrop extends StatelessWidget {
                 bytes,
                 width: constraints.maxWidth,
                 height: constraints.maxHeight,
-                fit: BoxFit.contain,
+                fit: BoxFit.cover,
                 alignment: Alignment.center,
                 gaplessPlayback: true,
                 filterQuality: FilterQuality.medium,

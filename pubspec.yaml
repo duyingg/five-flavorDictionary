@@ -1,7 +1,7 @@
 name: wuwei_dictionary
 description: 五味字典——离线中文单字典、汉字学习与传统文化应用
 publish_to: "none"
-version: 1.1.0+24
+version: 1.1.0+25
 environment:
   sdk: ">=3.4.0 <4.0.0"
 
@@ -46,6 +46,8 @@ flutter:
     - assets/data/tongjia_context_pinyin.tsv
     - assets/data/phrase_pinyin.txt
     - assets/data/word_entries.wvd
+    - assets/data/word_pinyin_index.wpi
+    - assets/data/idiom_positions.wvi
     - assets/data/polyphonic_lessons.json
     - assets/data/primary_school_characters.json
     - assets/data/classical_lookup_index.json.gz

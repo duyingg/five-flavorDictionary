@@ -1,8 +1,8 @@
-import 'dart:typed_data';
-
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:wuwei_dictionary/features/data/repositories.dart';
 import 'package:wuwei_dictionary/features/data/poetry_binary_codec.dart';
+import 'package:wuwei_dictionary/features/data/word_binary_codec.dart';
 import 'package:wuwei_dictionary/features/culture/festival_section.dart';
 import 'package:wuwei_dictionary/features/culture/ethnic_festivals.dart';
 import 'package:wuwei_dictionary/features/culture/school_books.dart';
@@ -51,6 +51,42 @@ void main() {
     );
   });
 
+  test('预生成首字拼音索引与逐条扫描结果一致', () async {
+    final catalog = WordBinaryCodec.open(
+      await rootBundle.load('assets/data/word_entries.wvd'),
+    );
+    final queries = [
+      ['zhong'],
+      ['zhong', 'guo'],
+      ['yin', 'hang'],
+      ['ren', 'min'],
+      ['lü'],
+    ];
+    final expected = [
+      for (final query in queries)
+        catalog
+            .searchPinyin(query, limit: 100)
+            .map((item) => item.word)
+            .toList(),
+    ];
+    final index = await rootBundle.load('assets/data/word_pinyin_index.wpi');
+    catalog.installFirstReadingIndex(index);
+    for (var position = 0; position < queries.length; position++) {
+      expect(
+        catalog
+            .searchPinyin(queries[position], limit: 100)
+            .map((item) => item.word),
+        orderedEquals(expected[position]),
+        reason: queries[position].join(' '),
+      );
+    }
+    expect(
+      () =>
+          catalog.installFirstReadingIndex(ByteData.sublistView(Uint8List(8))),
+      throwsFormatException,
+    );
+  });
+
   test('繁体字等级继承对应简体字等级', () async {
     final repository = AssetDictionaryRepository();
     for (final (simplified, traditional) in [
@@ -71,28 +107,36 @@ void main() {
     final verses =
         await AssetDailyContentRepository().getByType(DailyContentType.verse);
     final catalog = await AssetPoetryRepository().catalog();
-    final converter = await HanScriptConverter.load();
-
+    expect(verses, hasLength(4841));
     for (final verse in verses) {
-      final firstClause = verse.title.split(RegExp(r'[，。！？；,.!?;]')).first;
-      final query = converter
-          .toSimplified(firstClause)
-          .toLowerCase()
-          .replaceAll(RegExp(r'\s+'), '');
-      final selection = await catalog.selectAsync(
-        PoetryQuery(
-          text: query,
-        ),
-      );
-      expect(selection, isNotNull, reason: verse.title);
-      expect(selection!.length, greaterThan(0), reason: verse.title);
-      final matchingPoems = [
-        for (var index = 0; index < selection.length; index++)
-          selection.itemAt(index),
-      ].where((poem) => converter
-          .toSimplified(poem.content)
-          .contains(converter.toSimplified(firstClause)));
-      expect(matchingPoems, isNotEmpty, reason: verse.title);
+      final poem = catalog.findById(verse.id);
+      expect(poem, isNotNull, reason: verse.id);
+      expect(poem!.content, contains(verse.title), reason: verse.id);
+      expect(poem.content, contains(verse.summary), reason: verse.id);
+      expect(poem.translation, isNotEmpty, reason: verse.id);
+      expect(poem.author, verse.author, reason: verse.id);
+      expect(poem.title, verse.sourceTitle, reason: verse.id);
+    }
+  });
+
+  test('每日成语均来自词语索引并可打开详情', () async {
+    final repository = AssetWordRepository();
+    final catalog = await repository.dailyCatalog();
+    expect(catalog.count(DailyContentType.idiom), 48089);
+    final seen = <String>{};
+    for (var position = 0;
+        position < catalog.count(DailyContentType.idiom);
+        position++) {
+      final entry = catalog.entryAt(DailyContentType.idiom, position);
+      expect(entry.definition, isNotEmpty);
+      expect(entry.pinyin, isNotEmpty);
+      seen.add(entry.word);
+    }
+    expect(seen.length, 48089);
+    for (final position in [0, 24044, 48088]) {
+      final entry = catalog.entryAt(DailyContentType.idiom, position);
+      expect((await repository.findExact(entry.word))?.definition,
+          entry.definition);
     }
   });
 
@@ -308,6 +352,20 @@ void main() {
       ],
       contains(untranslated.id),
     );
+    const query = PoetryQuery(text: '明月', translatedOnly: true);
+    final optimized = catalog.select(query);
+    final actual = {
+      for (var index = 0; index < optimized.length; index++)
+        optimized.itemAt(index).id,
+    };
+    final unfiltered = catalog.select(const PoetryQuery());
+    final expected = {
+      for (var index = 0; index < unfiltered.length; index++)
+        if (unfiltered.itemAt(index).searchText.contains(query.text) &&
+            unfiltered.itemAt(index).translation.isNotEmpty)
+          unfiltered.itemAt(index).id,
+    };
+    expect(actual, expected);
   });
 
   test('全量诗词二进制资源可完整解码', () async {

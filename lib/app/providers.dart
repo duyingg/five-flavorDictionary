@@ -13,8 +13,11 @@ final dictionaryRepositoryProvider =
     Provider<DictionaryRepository>((ref) => AssetDictionaryRepository());
 final contextualPinyinRepositoryProvider =
     Provider((ref) => ContextualPinyinRepository());
+final assetWordRepositoryProvider = Provider((ref) => AssetWordRepository());
 final wordRepositoryProvider =
-    Provider<WordRepository>((ref) => AssetWordRepository());
+    Provider<WordRepository>((ref) => ref.read(assetWordRepositoryProvider));
+final dailyWordRepositoryProvider = Provider<DailyWordRepository>(
+    (ref) => ref.read(assetWordRepositoryProvider));
 final dailyContentRepositoryProvider =
     Provider<DailyContentRepository>((ref) => AssetDailyContentRepository());
 final cultureRepositoryProvider =
@@ -286,12 +289,36 @@ final dailyContentProvider = FutureProvider<DailyContent?>((ref) async {
       sourceId: entry.sourceId,
     );
   }
+  if (settings.dailyContentType == DailyContentType.word ||
+      settings.dailyContentType == DailyContentType.idiom) {
+    final type = settings.dailyContentType;
+    final catalog = await ref.read(dailyWordRepositoryProvider).dailyCatalog();
+    final count = catalog.count(type);
+    if (count == 0) return null;
+    final position = ref
+        .read(dailyContentServiceProvider)
+        .selectIndex(count, day, type, reroll);
+    final entry = catalog.entryAt(type, position);
+    return DailyContent(
+      id: '${type.name}:${entry.word}',
+      type: type,
+      title: entry.word,
+      summary: entry.definition,
+      pronunciation: entry.pinyin,
+      sourceId: 'chinese-dictionary',
+    );
+  }
   final items = await ref
       .read(dailyContentRepositoryProvider)
       .getByType(settings.dailyContentType);
-  return ref
-      .read(dailyContentServiceProvider)
-      .select(items, day, settings.dailyContentType, reroll);
+  if (items.isEmpty) return null;
+  final position = ref.read(dailyContentServiceProvider).selectIndex(
+        items.length,
+        day,
+        settings.dailyContentType,
+        reroll,
+      );
+  return items[position];
 });
 
 final dailyPoetryTargetProvider =
@@ -299,6 +326,11 @@ final dailyPoetryTargetProvider =
   (ref, item) async {
     if (item.type != DailyContentType.verse) return null;
     final catalog = await ref.read(poetryRepositoryProvider).catalog();
+    // Generated daily cards retain the exact catalog ID. Legacy curated cards
+    // still use the text/author lookup below.
+    if (item.id.startsWith('poetry-')) {
+      return catalog.findById(item.id);
+    }
     final converter = await ref.read(hanScriptConverterProvider.future);
     final firstClause = item.title.split(RegExp(r'[，。！？；,.!?;]')).first;
     final query = converter

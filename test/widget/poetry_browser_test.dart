@@ -156,6 +156,21 @@ void main() {
     await tester.pump();
     await pumpUntilFound(tester, find.textContaining('关关雎鸠'));
 
+    final favorite = find.byTooltip('收藏诗词');
+    expect(favorite, findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(AppBar), matching: favorite),
+      findsNothing,
+    );
+    final titlePosition = tester.getTopLeft(find.text('关雎'));
+    final favoritePosition = tester.getTopLeft(favorite);
+    expect(favoritePosition.dx, greaterThan(titlePosition.dx));
+    expect((favoritePosition.dy - titlePosition.dy).abs(), lessThan(45));
+    await tester.tap(favorite);
+    await tester.pump();
+    expect(find.text('收藏成功'), findsOneWidget);
+    expect(find.byTooltip('取消收藏诗词'), findsOneWidget);
+
     await tester.tap(find.text('注释'));
     await tester.pump();
     await tester.tap(find.text('翻译'));

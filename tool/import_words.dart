@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:wuwei_dictionary/features/data/word_binary_codec.dart';
 
+import 'build_word_pinyin_index.dart' as pinyin_index;
+
 const _sources = [
   'Aatime/chinese-dictionary-main/word/word.json',
   'Aatime/chinese-dictionary-main/idiom/idiom.json',
@@ -61,6 +63,7 @@ void main() {
   output.add(records.takeBytes());
   final bytes = output.takeBytes();
   File(_output).writeAsBytesSync(bytes, flush: true);
+  pinyin_index.main();
   stdout.writeln('已导入 ${sorted.length} 个词语，输出 $_output（${bytes.length} 字节）。');
 }
 

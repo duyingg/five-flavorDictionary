@@ -4,7 +4,7 @@ import 'package:wuwei_dictionary/core/design/app_theme.dart';
 import 'package:wuwei_dictionary/core/widgets/skin_widgets.dart';
 
 void main() {
-  testWidgets('皮肤背景按设备尺寸等比缩放', (tester) async {
+  testWidgets('皮肤背景在不同屏幕比例下等比铺满', (tester) async {
     await tester.binding.setSurfaceSize(const Size(320, 560));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     const image = 'data:image/png;base64,'
@@ -23,13 +23,14 @@ void main() {
       home: const SkinBackdrop(child: SizedBox.expand()),
     ));
     var background = tester.widget<Image>(find.byType(Image));
-    expect(background.fit, BoxFit.contain);
+    expect(background.fit, BoxFit.cover);
     expect(background.width, 320);
     expect(background.height, 560);
 
     await tester.binding.setSurfaceSize(const Size(900, 600));
     await tester.pump();
     background = tester.widget<Image>(find.byType(Image));
+    expect(background.fit, BoxFit.cover);
     expect(background.width, 900);
     expect(background.height, 600);
   });

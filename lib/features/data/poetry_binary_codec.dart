@@ -145,10 +145,13 @@ class PoetryCatalog {
       return PoetrySelection._(this, query.order, null);
     }
     final matches = Uint32List(length);
+    final textBytes = query.text.isEmpty ? null : utf8.encode(query.text);
     var matchCount = 0;
     for (var position = 0; position < length; position++) {
       final recordIndex = recordIndexAt(position, query.order);
-      if (_matches(recordIndex, query)) matches[matchCount++] = recordIndex;
+      if (_matches(recordIndex, query, textBytes)) {
+        matches[matchCount++] = recordIndex;
+      }
     }
     return PoetrySelection._(
       this,
@@ -167,10 +170,13 @@ class PoetryCatalog {
       return PoetrySelection._(this, query.order, null);
     }
     final matches = Uint32List(length);
+    final textBytes = query.text.isEmpty ? null : utf8.encode(query.text);
     var matchCount = 0;
     for (var position = 0; position < length; position++) {
       final recordIndex = recordIndexAt(position, query.order);
-      if (_matches(recordIndex, query)) matches[matchCount++] = recordIndex;
+      if (_matches(recordIndex, query, textBytes)) {
+        matches[matchCount++] = recordIndex;
+      }
       if (position > 0 && position % chunkSize == 0) {
         await Future<void>.delayed(Duration.zero);
         if (isCancelled?.call() ?? false) return null;
@@ -262,7 +268,7 @@ class PoetryCatalog {
     return null;
   }
 
-  bool _matches(int recordIndex, PoetryQuery query) {
+  bool _matches(int recordIndex, PoetryQuery query, List<int>? textBytes) {
     final reader = _recordReader(recordIndex)..skipUint32(2);
     reader.readUint32(); // display author
     if (query.author.isNotEmpty &&
@@ -280,19 +286,22 @@ class PoetryCatalog {
     reader.skipUint32(); // source ID
     reader.skipString(); // ID
     reader.skipString(); // title
-    final textMatches =
-        query.text.isEmpty || reader.readString().contains(query.text);
-    if (!textMatches) return false;
+    if (textBytes != null && !reader.stringContainsBytes(textBytes)) {
+      return false;
+    }
     if (!query.translatedOnly) return true;
-    if (query.text.isEmpty) reader.skipString(); // search text
+    if (textBytes == null) reader.skipString(); // search text
     reader.skipString(); // content
     reader.skipString(); // notes
-    return reader.readString().isNotEmpty;
+    return reader.hasNonEmptyString();
   }
 
   bool _matchesShared(_BinaryReader reader, String expected) {
-    final value = _shared(reader.readUint32());
-    return expected.isEmpty || value == expected;
+    if (expected.isEmpty) {
+      reader.skipUint32();
+      return true;
+    }
+    return _shared(reader.readUint32()) == expected;
   }
 
   int _sequenceAt(int recordIndex) => _data.getUint32(
@@ -430,6 +439,35 @@ final class _BinaryReader {
     final length = readUint32();
     _ensureAvailable(length);
     _offset += length;
+  }
+
+  bool hasNonEmptyString() {
+    final length = readUint32();
+    _ensureAvailable(length);
+    _offset += length;
+    return length != 0;
+  }
+
+  bool stringContainsBytes(List<int> needle) {
+    final length = readUint32();
+    _ensureAvailable(length);
+    final bytes = data.buffer.asUint8List(data.offsetInBytes + _offset, length);
+    _offset += length;
+    if (needle.isEmpty) return true;
+    final last = length - needle.length;
+    for (var position = bytes.indexOf(needle.first);
+        position >= 0 && position <= last;
+        position = bytes.indexOf(needle.first, position + 1)) {
+      var matched = true;
+      for (var part = 1; part < needle.length; part++) {
+        if (bytes[position + part] != needle[part]) {
+          matched = false;
+          break;
+        }
+      }
+      if (matched) return true;
+    }
+    return false;
   }
 
   void expectEnd() {

@@ -8,18 +8,7 @@ import 'package:wuwei_dictionary/features/domain/models.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const service = DailyContentService();
-  final items = List.generate(
-    4,
-    (index) => DailyContent(
-      id: '$index',
-      type: DailyContentType.character,
-      title: '$index',
-      summary: 'summary',
-      sourceId: 'app-original',
-    ),
-  );
-
-  test('每日偏好内容按日期稳定且不受资源原始顺序影响', () {
+  test('每日偏好内容按日期稳定且不受时分影响', () {
     final date = DateTime(2026, 8, 15, 9);
     for (final type in const [
       DailyContentType.word,
@@ -27,8 +16,8 @@ void main() {
       DailyContentType.verse,
     ]) {
       expect(
-        service.select(items, date, type, 0)?.id,
-        service.select(items.reversed.toList(), date, type, 0)?.id,
+        service.selectIndex(4, date, type, 0),
+        service.selectIndex(4, DateTime(2026, 8, 15, 22), type, 0),
       );
     }
   });
@@ -40,16 +29,12 @@ void main() {
       DailyContentType.idiom,
       DailyContentType.verse,
     ]) {
-      final today = service.select(items, date, type, 0);
-      final tomorrow = service.select(
-        items,
-        date.add(const Duration(days: 1)),
-        type,
-        0,
-      );
-      final rerolled = service.select(items, date, type, 1);
-      expect(tomorrow?.id, isNot(today?.id), reason: type.name);
-      expect(rerolled?.id, isNot(today?.id), reason: type.name);
+      final today = service.selectIndex(4, date, type, 0);
+      final tomorrow =
+          service.selectIndex(4, date.add(const Duration(days: 1)), type, 0);
+      final rerolled = service.selectIndex(4, date, type, 1);
+      expect(tomorrow, isNot(today), reason: type.name);
+      expect(rerolled, isNot(today), reason: type.name);
     }
   });
 
@@ -60,14 +45,13 @@ void main() {
       DailyContentType.idiom,
       DailyContentType.verse,
     ]) {
-      for (var offset = 0; offset < items.length; offset++) {
+      for (var offset = 0; offset < 4; offset++) {
         for (var day = 0; day < 20; day++) {
           final date = start.add(Duration(days: day));
           expect(
-            service.select(items, date, type, offset)?.id,
-            isNot(service
-                .select(items, date.add(const Duration(days: 1)), type, offset)
-                ?.id),
+            service.selectIndex(4, date, type, offset),
+            isNot(service.selectIndex(
+                4, date.add(const Duration(days: 1)), type, offset)),
             reason: '${type.name} offset=$offset day=$day',
           );
         }
@@ -75,9 +59,22 @@ void main() {
     }
   });
 
-  test('空列表返回 null', () {
+  test('空目录拒绝选择', () {
     expect(
-        service.select([], DateTime(2026), DailyContentType.word, 0), isNull);
+      () => service.selectIndex(0, DateTime(2026), DailyContentType.word, 0),
+      throwsRangeError,
+    );
+  });
+
+  test('词库序列在重复前遍历所有候选', () {
+    for (var length = 2; length <= 30; length++) {
+      final positions = <int>{
+        for (var offset = 0; offset < length; offset++)
+          service.selectIndex(
+              length, DateTime(2026, 10, 10), DailyContentType.idiom, offset),
+      };
+      expect(positions.length, length, reason: '$length');
+    }
   });
 
   test('首页每日偏好在真实资源中次日更新', () async {
@@ -105,6 +102,49 @@ void main() {
       expect(today, isNotNull, reason: type.name);
       expect(tomorrow, isNot(today), reason: type.name);
     }
+  });
+
+  test('词语和成语遍历完整词库，译文诗句遍历全部候选', () async {
+    final words = await AssetWordRepository().dailyCatalog();
+    final verses =
+        await AssetDailyContentRepository().getByType(DailyContentType.verse);
+    expect(words.count(DailyContentType.word), 302290);
+    expect(words.count(DailyContentType.idiom), 48089);
+    expect(verses, hasLength(4841));
+    for (final type in const [
+      DailyContentType.word,
+      DailyContentType.idiom,
+      DailyContentType.verse,
+    ]) {
+      final count =
+          type == DailyContentType.verse ? verses.length : words.count(type);
+      final chosen = <int>{};
+      for (var day = 0; day < 30; day++) {
+        chosen.add(
+            service.selectIndex(count, DateTime(2026, 10, 10 + day), type, 0));
+      }
+      expect(chosen.length, 30, reason: type.name);
+      final cycle = service.selectIndex(count, DateTime(2026, 10, 10), type, 0);
+      expect(
+          service.selectIndex(count, DateTime(2026, 10, 10 + count), type, 0),
+          cycle);
+    }
+  });
+
+  test('同一应用会话在日期变化后重新选取诗句', () async {
+    SharedPreferences.setMockInitialValues({
+      PreferencesKeys.dailyType: DailyContentType.verse.name,
+    });
+    var day = DateTime(2026, 10, 10);
+    final container = ProviderContainer(overrides: [
+      currentDayProvider.overrideWith((ref) => day),
+    ]);
+    addTearDown(container.dispose);
+    final first = await container.read(dailyContentProvider.future);
+    day = DateTime(2026, 10, 11);
+    container.invalidate(currentDayProvider);
+    final next = await container.read(dailyContentProvider.future);
+    expect(first?.id, isNot(next?.id));
   });
 
   test('今日汉字遵循简繁体系并保留各字级配额', () async {
