@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +10,8 @@ import 'package:wuwei_dictionary/app/providers.dart';
 import 'package:wuwei_dictionary/core/widgets/global_han_lookup.dart';
 import 'package:wuwei_dictionary/features/culture/culture_pages.dart';
 import 'package:wuwei_dictionary/features/data/content_repositories.dart';
+import 'package:wuwei_dictionary/features/data/contextual_pinyin_repository.dart';
+import 'package:wuwei_dictionary/features/data/dictionary_repository.dart';
 import 'package:wuwei_dictionary/features/data/preferences_store.dart';
 import 'package:wuwei_dictionary/features/domain/models.dart';
 import 'package:wuwei_dictionary/features/home/home_page.dart';
@@ -23,6 +27,34 @@ class _CultureTestRepository implements CultureRepository {
 
   @override
   Future<CultureItem?> getById(String id) async => id == item.id ? item : null;
+}
+
+class _TrackingPinyinRepository extends ContextualPinyinRepository {
+  final resolvedTexts = <String>[];
+
+  @override
+  Future<List<String>> resolve(
+      String text, DictionaryRepository dictionary) async {
+    resolvedTexts.add(text);
+    return List<String>.filled(text.runes.length, '');
+  }
+}
+
+class _DeferredPinyinRepository extends ContextualPinyinRepository {
+  final pending = <Completer<List<String>>>[];
+
+  @override
+  Future<List<String>> resolve(String text, DictionaryRepository dictionary) {
+    final result = Completer<List<String>>();
+    pending.add(result);
+    return result.future;
+  }
+
+  void complete() {
+    for (final result in pending) {
+      result.complete(const ['tiān', 'dì', 'xuán', 'huáng', '']);
+    }
+  }
 }
 
 void main() {
@@ -221,5 +253,124 @@ void main() {
     await tester.pump();
     expect(find.text('译文一'), findsOneWidget);
     expect(find.text('译文二'), findsOneWidget);
+  });
+
+  testWidgets('文献读音按可见段落分批加载并随滚动预取', (tester) async {
+    final passages = List.generate(
+      80,
+      (index) => CulturePassage(
+        original: '第 $index 段文献原文。',
+        translation: '',
+      ),
+    );
+    final item = CultureItem(
+      id: 'classic-pinyin-test',
+      category: CultureCategory.schools,
+      title: '测试古籍',
+      subtitle: '读音分批加载',
+      summary: '',
+      content: '',
+      sourceId: 'test',
+      passages: passages,
+    );
+    final pinyin = _TrackingPinyinRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          cultureRepositoryProvider
+              .overrideWithValue(_CultureTestRepository(item)),
+          contextualPinyinRepositoryProvider.overrideWithValue(pinyin),
+        ],
+        child: const MaterialApp(
+          home: CultureDetailPage(id: 'classic-pinyin-test'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('读音'));
+    await tester.pumpAndSettle();
+
+    final initiallyLoaded = pinyin.resolvedTexts.length;
+    expect(initiallyLoaded, greaterThan(0));
+    expect(initiallyLoaded, lessThan(passages.length));
+
+    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    await tester.pumpAndSettle();
+    expect(pinyin.resolvedTexts.length, greaterThan(initiallyLoaded));
+    expect(pinyin.resolvedTexts.length, lessThan(passages.length));
+  });
+
+  testWidgets('文献读音计算时保留段落布局', (tester) async {
+    const item = CultureItem(
+      id: 'classic-pinyin-pending',
+      category: CultureCategory.schools,
+      title: '测试古籍',
+      subtitle: '',
+      summary: '',
+      content: '',
+      sourceId: 'test',
+      passages: [CulturePassage(original: '天地玄黄。', translation: '')],
+    );
+    final pinyin = _DeferredPinyinRepository();
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        cultureRepositoryProvider.overrideWithValue(
+          const _CultureTestRepository(item),
+        ),
+        contextualPinyinRepositoryProvider.overrideWithValue(pinyin),
+      ],
+      child: const MaterialApp(
+        home: CultureDetailPage(id: 'classic-pinyin-pending'),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('读音'));
+    await tester.pump();
+
+    expect(pinyin.pending, isNotEmpty);
+    expect(find.text('天'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+
+    pinyin.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('tiān'), findsOneWidget);
+    final firstCell = find
+        .ancestor(of: find.text('天'), matching: find.byType(SizedBox))
+        .first;
+    final secondCell = find
+        .ancestor(of: find.text('地'), matching: find.byType(SizedBox))
+        .first;
+    expect(tester.getSize(firstCell).width, tester.getSize(secondCell).width);
+  });
+
+  testWidgets('多行原文共用一段翻译时合并展示', (tester) async {
+    const item = CultureItem(
+      id: 'classic-qianziwen',
+      category: CultureCategory.classics,
+      title: '千字文',
+      subtitle: '',
+      summary: '',
+      content: '',
+      sourceId: 'test',
+      passages: [
+        CulturePassage(original: '闰余成岁，律吕调阳。', translation: ''),
+        CulturePassage(original: '云腾致雨，露结为霜。', translation: '合并译文'),
+      ],
+    );
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        cultureRepositoryProvider
+            .overrideWithValue(const _CultureTestRepository(item)),
+      ],
+      child:
+          const MaterialApp(home: CultureDetailPage(id: 'classic-qianziwen')),
+    ));
+    await tester.pumpAndSettle();
+    final source = tester.widget<Text>(find.textContaining('闰余成岁'));
+    expect(source.data, contains('云腾致雨'));
+    expect(source.data, contains('\n'));
+    await tester.tap(find.text('翻译'));
+    await tester.pump();
+    expect(find.text('合并译文'), findsOneWidget);
   });
 }

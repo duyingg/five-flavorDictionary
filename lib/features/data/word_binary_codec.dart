@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../core/language/pinyin_utils.dart';
 import '../domain/models.dart';
 
 class WordCatalog {
@@ -9,6 +10,7 @@ class WordCatalog {
   final ByteData _data;
   final Uint32List _offsets;
   final int _recordsStart;
+  Map<String, List<int>>? _firstReadingIndex;
 
   int get length => _offsets.length - 1;
 
@@ -36,6 +38,81 @@ class WordCatalog {
       }
     }
     return null;
+  }
+
+  List<WordEntry> searchText(String query, {int limit = 50}) {
+    if (query.isEmpty || limit <= 0) return const [];
+    var low = 0;
+    var high = length;
+    while (low < high) {
+      final middle = (low + high) >> 1;
+      final word = _readerAt(middle).readString();
+      if (word.compareTo(query) < 0) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    final result = <WordEntry>[];
+    for (var index = low; index < length && result.length < limit; index++) {
+      final item = _entryAt(index);
+      if (!item.word.startsWith(query)) break;
+      result.add(item);
+    }
+    return result;
+  }
+
+  List<WordEntry> searchPinyin(List<String> readings, {int limit = 50}) {
+    final query = readings.map(PinyinUtils.normalize).toList();
+    if (query.isEmpty || query.any((value) => value.isEmpty) || limit <= 0) {
+      return const [];
+    }
+    final index = _firstReadingIndex ??= _buildFirstReadingIndex();
+    final result = <WordEntry>[];
+    for (final position in index[query.first] ?? const <int>[]) {
+      final reader = _readerAt(position);
+      reader.skipString();
+      final pinyin = reader.readString().split(RegExp(r'\s+'));
+      if (pinyin.length < query.length) continue;
+      var matches = true;
+      for (var part = 1; part < query.length; part++) {
+        if (PinyinUtils.normalize(pinyin[part]) != query[part]) {
+          matches = false;
+          break;
+        }
+      }
+      if (!matches) continue;
+      result.add(_entryAt(position));
+      if (result.length == limit) break;
+    }
+    return result;
+  }
+
+  Map<String, List<int>> _buildFirstReadingIndex() {
+    final result = <String, List<int>>{};
+    for (var position = 0; position < length; position++) {
+      final reader = _readerAt(position);
+      reader.skipString();
+      final pinyin = reader.readString();
+      final boundary = pinyin.indexOf(' ');
+      final first = boundary < 0 ? pinyin : pinyin.substring(0, boundary);
+      final normalized = PinyinUtils.normalize(first);
+      if (normalized.isNotEmpty) {
+        result.putIfAbsent(normalized, () => []).add(position);
+      }
+    }
+    return result;
+  }
+
+  WordEntry _entryAt(int position) {
+    final reader = _readerAt(position);
+    final entry = WordEntry(
+      word: reader.readString(),
+      pinyin: reader.readString(),
+      definition: reader.readString(),
+    );
+    reader.expectEnd();
+    return entry;
   }
 
   _WordBinaryReader _readerAt(int index) => _WordBinaryReader(
@@ -112,6 +189,12 @@ final class _WordBinaryReader {
     } on FormatException {
       throw const FormatException('词语资源包含无效的 UTF-8 文本');
     }
+  }
+
+  void skipString() {
+    final length = readUint32();
+    _ensureAvailable(length);
+    _offset += length;
   }
 
   void expectEnd() {

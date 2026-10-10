@@ -16,10 +16,29 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends ConsumerState<HomePage> {
+class _HomePageState extends ConsumerState<HomePage>
+    with WidgetsBindingObserver {
   final _controller = TextEditingController();
   final _focus = FocusNode();
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    final currentDay = ref.read(currentDayProvider);
+    final now = DateTime.now();
+    if (currentDay.year != now.year ||
+        currentDay.month != now.month ||
+        currentDay.day != now.day) {
+      ref.invalidate(currentDayProvider);
+    }
+  }
 
   Future<void> _openDailyContent(DailyContent item) async {
     if (item.type == DailyContentType.word ||
@@ -41,6 +60,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     _focus.dispose();
     super.dispose();
@@ -149,6 +169,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                                           item: item,
                                           compact: compact,
                                           onOpen: null,
+                                          onTypeSelected: (type) => ref
+                                              .read(settingsControllerProvider
+                                                  .notifier)
+                                              .setSettings((current) =>
+                                                  current.copyWith(
+                                                      dailyContentType: type)),
                                           onReroll: () => ref
                                               .read(
                                                   dailyRerollProvider.notifier)
@@ -160,6 +186,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                                             compact: compact,
                                             onOpen: () =>
                                                 _openDailyContent(item),
+                                            onTypeSelected: (type) => ref
+                                                .read(settingsControllerProvider
+                                                    .notifier)
+                                                .setSettings((current) =>
+                                                    current.copyWith(
+                                                        dailyContentType:
+                                                            type)),
                                             onReroll: () => ref
                                                 .read(dailyRerollProvider
                                                     .notifier)
@@ -288,11 +321,13 @@ class _DailyCard extends StatelessWidget {
     required this.onReroll,
     required this.compact,
     required this.onOpen,
+    required this.onTypeSelected,
   });
   final DailyContent item;
   final VoidCallback onReroll;
   final bool compact;
   final VoidCallback? onOpen;
+  final ValueChanged<DailyContentType> onTypeSelected;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -301,8 +336,26 @@ class _DailyCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(children: [
-              Text('每日${item.type.label}',
-                  style: Theme.of(context).textTheme.titleMedium),
+              PopupMenuButton<DailyContentType>(
+                tooltip: '选择每日内容类型',
+                padding: EdgeInsets.zero,
+                onSelected: onTypeSelected,
+                itemBuilder: (context) => [
+                  for (final type in DailyContentType.values)
+                    PopupMenuItem(
+                      value: type,
+                      child: Text('每日${type.label}'),
+                    ),
+                ],
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text('每日${item.type.label}',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const Icon(Icons.arrow_drop_down),
+                  ]),
+                ),
+              ),
               const Spacer(),
               TextButton.icon(
                   onPressed: onReroll,

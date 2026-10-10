@@ -3,12 +3,16 @@ import 'dart:async';
 import 'package:characters/characters.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/language/pinyin_utils.dart';
 import '../features/data/repositories.dart';
 import '../features/data/poetry_binary_codec.dart';
 import '../features/domain/models.dart';
+import '../features/domain/character_visibility.dart';
 
 final dictionaryRepositoryProvider =
     Provider<DictionaryRepository>((ref) => AssetDictionaryRepository());
+final contextualPinyinRepositoryProvider =
+    Provider((ref) => ContextualPinyinRepository());
 final wordRepositoryProvider =
     Provider<WordRepository>((ref) => AssetWordRepository());
 final dailyContentRepositoryProvider =
@@ -28,6 +32,13 @@ final primaryPinyinProvider =
     FutureProvider.autoDispose.family<Map<String, String>, String>(
   (ref, text) =>
       ref.read(dictionaryRepositoryProvider).primaryPinyinFor(text.characters),
+);
+final contextualPinyinProvider =
+    FutureProvider.autoDispose.family<List<String>, String>(
+  (ref, text) => ref.read(contextualPinyinRepositoryProvider).resolve(
+        text,
+        ref.read(dictionaryRepositoryProvider),
+      ),
 );
 final polyphonicChallengeLevelProvider = StateProvider<int>((ref) => 0);
 final polyphonicEndlessCorrectProvider = StateProvider<int>((ref) => 0);
@@ -243,11 +254,21 @@ final sentenceNotesControllerProvider =
 
 final todayCharactersProvider = FutureProvider<List<ChineseEntry>>((ref) async {
   final day = ref.watch(currentDayProvider);
+  final settings = await ref.watch(settingsControllerProvider.future);
   final entries = await ref.read(dictionaryRepositoryProvider).all();
-  return ref.read(dailyContentServiceProvider).selectCharacters(entries, day);
+  return ref.read(dailyContentServiceProvider).selectCharacters(
+        entries
+            .where((entry) => entry.isVisibleFor(
+                  display: settings.scriptDisplay,
+                  maxLevel: 3,
+                ))
+            .toList(growable: false),
+        day,
+      );
 });
 
 final dailyContentProvider = FutureProvider<DailyContent?>((ref) async {
+  final day = ref.watch(currentDayProvider);
   final settings = await ref.watch(settingsControllerProvider.future);
   final reroll = ref.watch(dailyRerollProvider);
   if (settings.dailyContentType == DailyContentType.character) {
@@ -265,7 +286,6 @@ final dailyContentProvider = FutureProvider<DailyContent?>((ref) async {
       sourceId: entry.sourceId,
     );
   }
-  final day = ref.watch(currentDayProvider);
   final items = await ref
       .read(dailyContentRepositoryProvider)
       .getByType(settings.dailyContentType);
@@ -313,3 +333,21 @@ final cultureItemsProvider =
   (ref, category) =>
       ref.read(cultureRepositoryProvider).getByCategory(category),
 );
+
+final sortedClassicsProvider = FutureProvider<List<CultureItem>>((ref) async {
+  final items =
+      await ref.watch(cultureItemsProvider(CultureCategory.classics).future);
+  final titles = items.map((item) => item.title).toList();
+  final readings =
+      await ref.read(dictionaryRepositoryProvider).primaryPinyinFor(
+            titles.expand((title) => title.characters),
+          );
+  String key(String title) => title.characters
+      .map((character) =>
+          PinyinUtils.normalize(readings[character] ?? character))
+      .join(' ');
+  return [...items]..sort((left, right) {
+      final order = key(left.title).compareTo(key(right.title));
+      return order != 0 ? order : left.title.compareTo(right.title);
+    });
+});

@@ -114,6 +114,12 @@ void main() {
     expect(simplified, isNot(contains('漢')));
     expect(traditional, contains('漢'));
     expect(traditional, isNot(contains('汉')));
+    expect(
+      IndexCatalog(entries, display: ScriptDisplay.traditional, maxLevel: 1)
+          .entries
+          .map((entry) => entry.character),
+      contains('漢'),
+    );
   });
 
   test('难检字索引严格按笔画数递增', () async {
@@ -125,15 +131,21 @@ void main() {
         .map((entry) => entry.character);
     expect(difficult, contains('了'));
     expect(difficult, isNot(contains('龘')));
+    expect(difficult, isNot(contains('牧')));
+    expect(difficult, isNot(contains('物')));
+    expect(difficult, isNot(contains('静')));
   });
 
-  test('复读音置顶且拼音索引只使用首音', () async {
+  test('复读音不因读音形式进入难检字索引，拼音索引只使用首音', () async {
     final entries = await AssetDictionaryRepository().all();
     final catalog = IndexCatalog(entries);
-    expect(catalog.difficultByStroke.keys.first, 0);
-    final compound =
-        catalog.difficultByStroke[0]!.map((entry) => entry.character);
-    expect(compound, containsAll(['兙', '浔', '瓧', '圕', '砼']));
+    expect(catalog.difficultByStroke.keys, isNot(contains(0)));
+    expect(
+      catalog.difficultByStroke.values
+          .expand((entries) => entries)
+          .map((entry) => entry.character),
+      isNot(contains('浔')),
+    );
     expect(
       catalog.entriesForSyllable('shi').values.expand((values) => values).map(
             (entry) => entry.character,

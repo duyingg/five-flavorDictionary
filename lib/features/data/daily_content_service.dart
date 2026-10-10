@@ -25,8 +25,11 @@ class DailyContentService {
     if (items.isEmpty) return null;
     final dailyOrder = [...items]
       ..sort((left, right) => left.id.compareTo(right.id))
-      ..shuffle(Random(_dailySeed(date, 'daily-content-${type.name}')));
-    return dailyOrder[offset % dailyOrder.length];
+      ..shuffle(Random(stableHash('daily-content-${type.name}')));
+    final dayNumber = DateTime.utc(date.year, date.month, date.day)
+        .difference(DateTime.utc(1970))
+        .inDays;
+    return dailyOrder[(dayNumber + offset) % dailyOrder.length];
   }
 
   List<ChineseEntry> selectCharacters(

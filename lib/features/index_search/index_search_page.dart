@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -71,6 +72,55 @@ void _jumpToLazySection<T>({
   }
 
   seek(8);
+}
+
+class _VisibleSectionTracker<T> {
+  _VisibleSectionTracker({
+    required this.controller,
+    required this.sections,
+    required this.keys,
+    required this.onSelected,
+  }) {
+    controller.addListener(_track);
+  }
+
+  final ScrollController controller;
+  final Iterable<T> Function() sections;
+  final Map<T, GlobalKey> keys;
+  final ValueChanged<T> onSelected;
+  bool _scheduled = false;
+
+  void dispose() => controller.removeListener(_track);
+
+  void _track() {
+    if (_scheduled) return;
+    _scheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduled = false;
+      if (!controller.hasClients) return;
+      T? current;
+      var currentOffset = double.negativeInfinity;
+      T? firstVisible;
+      var firstOffset = double.infinity;
+      for (final section in sections()) {
+        final render = keys[section]?.currentContext?.findRenderObject();
+        if (render == null || !render.attached) continue;
+        final offset = RenderAbstractViewport.of(render)
+            .getOffsetToReveal(render, 0)
+            .offset;
+        if (offset < firstOffset) {
+          firstOffset = offset;
+          firstVisible = section;
+        }
+        if (offset <= controller.offset + 32 && offset > currentOffset) {
+          currentOffset = offset;
+          current = section;
+        }
+      }
+      final selected = current ?? firstVisible;
+      if (selected != null) onSelected(selected);
+    });
+  }
 }
 
 class IndexSearchPage extends ConsumerStatefulWidget {
@@ -212,7 +262,7 @@ class _IndexFilters extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
         child: Align(
-          alignment: Alignment.centerRight,
+          alignment: AlignmentDirectional.centerEnd,
           child: Wrap(
             spacing: 14,
             runSpacing: 4,
@@ -289,9 +339,53 @@ class _PronunciationIndexState extends State<_PronunciationIndex> {
   final _scrollController = ScrollController();
   final _sectionKeys = <String, GlobalKey>{};
   String? _selectedSection;
+  bool _trackingScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_trackVisibleSection);
+  }
+
+  void _trackVisibleSection() {
+    if (_trackingScheduled) return;
+    _trackingScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _trackingScheduled = false;
+      if (!mounted || !_scrollController.hasClients) return;
+      final sections = widget.byRhyme
+          ? widget.catalog.pronunciationsByFinal.keys
+          : widget.catalog.pronunciationsByInitial.keys;
+      String? current;
+      var currentOffset = double.negativeInfinity;
+      String? firstVisible;
+      var firstOffset = double.infinity;
+      for (final section in sections) {
+        final render =
+            _sectionKeys[section]?.currentContext?.findRenderObject();
+        if (render == null || !render.attached) continue;
+        final offset = RenderAbstractViewport.of(render)
+            .getOffsetToReveal(render, 0)
+            .offset;
+        if (offset < firstOffset) {
+          firstOffset = offset;
+          firstVisible = section;
+        }
+        if (offset <= _scrollController.offset + 32 && offset > currentOffset) {
+          currentOffset = offset;
+          current = section;
+        }
+      }
+      final selected = current ?? firstVisible;
+      if (selected != null && selected != _selectedSection) {
+        setState(() => _selectedSection = selected);
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_trackVisibleSection);
     _scrollController.dispose();
     super.dispose();
   }
@@ -467,9 +561,26 @@ class _RadicalIndexState extends State<_RadicalIndex> {
   final _scrollController = ScrollController();
   final _sectionKeys = <int, GlobalKey>{};
   int? _selectedStroke;
+  late final _VisibleSectionTracker<int> _tracker;
+
+  @override
+  void initState() {
+    super.initState();
+    _tracker = _VisibleSectionTracker(
+      controller: _scrollController,
+      sections: () => widget.catalog.radicalsByStroke.keys,
+      keys: _sectionKeys,
+      onSelected: (stroke) {
+        if (mounted && stroke != _selectedStroke) {
+          setState(() => _selectedStroke = stroke);
+        }
+      },
+    );
+  }
 
   @override
   void dispose() {
+    _tracker.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -678,10 +789,28 @@ class _StrokeIndex extends StatefulWidget {
 
 class _StrokeIndexState extends State<_StrokeIndex> {
   final _scrollController = ScrollController();
+  final _sectionKeys = <int, GlobalKey>{};
   int? selectedStroke;
+  late final _VisibleSectionTracker<int> _tracker;
+
+  @override
+  void initState() {
+    super.initState();
+    _tracker = _VisibleSectionTracker(
+      controller: _scrollController,
+      sections: () => widget.catalog.strokeCounts,
+      keys: _sectionKeys,
+      onSelected: (stroke) {
+        if (mounted && stroke != selectedStroke) {
+          setState(() => selectedStroke = stroke);
+        }
+      },
+    );
+  }
 
   @override
   void dispose() {
+    _tracker.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -701,17 +830,9 @@ class _StrokeIndexState extends State<_StrokeIndex> {
     if (!strokes.contains(selectedStroke)) {
       selectedStroke = strokes.firstOrNull;
     }
-    final entries = selectedStroke == null
-        ? const <ChineseEntry>[]
-        : widget.catalog.entriesForStrokeCount(selectedStroke!);
-    final radicalGroups = <String, List<ChineseEntry>>{};
-    for (final entry in entries) {
-      radicalGroups.putIfAbsent(entry.radical, () => []).add(entry);
-    }
-
     return Column(
       children: [
-        const _IndexHint(text: '选择总笔画数，汉字按传统部首顺序排列。'),
+        const _IndexHint(text: '上下滑动浏览全部笔画；也可点选左侧笔画快速跳转。'),
         Expanded(
           child: Row(
             children: [
@@ -721,63 +842,91 @@ class _StrokeIndexState extends State<_StrokeIndex> {
                   selected: selectedStroke,
                   width: widget.sidebarWidth,
                   label: (value) => '$value画',
-                  onSelected: (value) => setState(() => selectedStroke = value),
+                  onSelected: _jumpTo,
                 ),
                 const VerticalDivider(width: 1),
               ],
               Expanded(
-                child: ListView(
+                child: ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
-                  children: [
-                    Text(
-                      '$selectedStroke 画 · ${entries.length} 字',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.primary),
-                    ),
-                    const SizedBox(height: 14),
-                    for (final group in radicalGroups.entries) ...[
-                      Row(
+                  itemCount: strokes.length,
+                  itemBuilder: (context, index) {
+                    final stroke = strokes[index];
+                    final entries =
+                        widget.catalog.entriesForStrokeCount(stroke);
+                    final radicalGroups = <String, List<ChineseEntry>>{};
+                    for (final entry in entries) {
+                      radicalGroups
+                          .putIfAbsent(entry.radical, () => [])
+                          .add(entry);
+                    }
+                    return Padding(
+                      key: _sectionKeys.putIfAbsent(stroke, GlobalKey.new),
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (widget.catalog
-                                  .strokeAssetForCharacter(group.key) !=
-                              null)
-                            SizedBox.square(
-                              dimension: 24,
-                              child: HanziGlyph(
-                                character: group.key,
-                                assetPath: widget.catalog
-                                    .strokeAssetForCharacter(group.key)!,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
-                              ),
-                            )
-                          else
-                            Text(group.key),
-                          const SizedBox(width: 5),
                           Text(
-                            '部',
-                            style: TextStyle(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            '$stroke 画 · ${entries.length} 字',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                    color:
+                                        Theme.of(context).colorScheme.primary),
                           ),
+                          const SizedBox(height: 14),
+                          for (final group in radicalGroups.entries) ...[
+                            Row(children: [
+                              if (widget.catalog
+                                      .strokeAssetForCharacter(group.key)
+                                  case final assetPath?)
+                                SizedBox.square(
+                                  dimension: 24,
+                                  child: HanziGlyph(
+                                    character: group.key,
+                                    assetPath: assetPath,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                                )
+                              else
+                                Text(group.key),
+                              const SizedBox(width: 5),
+                              Text('部',
+                                  style: TextStyle(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                  )),
+                            ]),
+                            const SizedBox(height: 8),
+                            _CharacterWrap(entries: group.value),
+                            const SizedBox(height: 18),
+                          ],
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      _CharacterWrap(entries: group.value),
-                      const SizedBox(height: 18),
-                    ],
-                  ],
+                    );
+                  },
                 ),
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  void _jumpTo(int stroke) {
+    setState(() => selectedStroke = stroke);
+    _jumpToLazySection(
+      controller: _scrollController,
+      sections: widget.catalog.strokeCounts,
+      keys: _sectionKeys,
+      target: stroke,
     );
   }
 }
@@ -799,9 +948,26 @@ class _DifficultIndexState extends State<_DifficultIndex> {
   final _scrollController = ScrollController();
   final _sectionKeys = <int, GlobalKey>{};
   int? selectedStroke;
+  late final _VisibleSectionTracker<int> _tracker;
+
+  @override
+  void initState() {
+    super.initState();
+    _tracker = _VisibleSectionTracker(
+      controller: _scrollController,
+      sections: () => widget.catalog.difficultByStroke.keys,
+      keys: _sectionKeys,
+      onSelected: (stroke) {
+        if (mounted && stroke != selectedStroke) {
+          setState(() => selectedStroke = stroke);
+        }
+      },
+    );
+  }
 
   @override
   void dispose() {
+    _tracker.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -825,7 +991,7 @@ class _DifficultIndexState extends State<_DifficultIndex> {
     return Column(
       children: [
         const _IndexHint(
-          text: '复读音字单独置顶；其余收录无部首或使用非常规部首的汉字，再按总笔画数排列。',
+          text: '收录部首难以辨认或与常见认知差距较大的汉字，按总笔画数排列。',
         ),
         Expanded(
           child: Row(
@@ -835,7 +1001,7 @@ class _DifficultIndexState extends State<_DifficultIndex> {
                   values: strokes,
                   selected: selectedStroke,
                   width: widget.sidebarWidth,
-                  label: (value) => value == 0 ? '复读音' : '$value画',
+                  label: (value) => '$value画',
                   onSelected: _jumpTo,
                 ),
                 const VerticalDivider(width: 1),
@@ -860,9 +1026,7 @@ class _DifficultIndexState extends State<_DifficultIndex> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  stroke == 0
-                                      ? '复读音 · ${groups[stroke]!.length} 字'
-                                      : '$stroke 画 · ${groups[stroke]!.length} 字',
+                                  '$stroke 画 · ${groups[stroke]!.length} 字',
                                   style: Theme.of(context)
                                       .textTheme
                                       .titleLarge
@@ -1060,8 +1224,8 @@ class _SideRail<T> extends StatelessWidget {
                 color: isSelected
                     ? colors.primary.withValues(alpha: .1)
                     : Colors.transparent,
-                border: Border(
-                  left: BorderSide(
+                border: BorderDirectional(
+                  start: BorderSide(
                     color: isSelected ? colors.primary : Colors.transparent,
                     width: 3,
                   ),

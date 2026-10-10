@@ -7,7 +7,12 @@ abstract interface class WordRepository {
   Future<WordEntry?> findExact(String word);
 }
 
-class AssetWordRepository implements WordRepository {
+abstract interface class WordSearchRepository implements WordRepository {
+  Future<List<WordEntry>> searchText(String query, {int limit = 50});
+  Future<List<WordEntry>> searchPinyin(List<String> readings, {int limit = 50});
+}
+
+class AssetWordRepository implements WordSearchRepository {
   Future<WordCatalog>? _loading;
 
   Future<WordCatalog> _load() => _loading ??= _read();
@@ -20,4 +25,13 @@ class AssetWordRepository implements WordRepository {
   @override
   Future<WordEntry?> findExact(String word) async =>
       (await _load()).findExact(word);
+
+  @override
+  Future<List<WordEntry>> searchText(String query, {int limit = 50}) async =>
+      (await _load()).searchText(query, limit: limit);
+
+  @override
+  Future<List<WordEntry>> searchPinyin(List<String> readings,
+          {int limit = 50}) async =>
+      (await _load()).searchPinyin(readings, limit: limit);
 }

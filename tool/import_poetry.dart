@@ -199,9 +199,10 @@ Future<void> main(List<String> args) async {
     throw StateError('默认诗词库缺少每日诗句：${missingDailyVerses.join('、')}');
   }
   final full = <_RawPoem>[...tang, ...song, ...other];
-  final outFile = await _writeOutput('assets/data/poetry_items.wvp', selected);
   final fullFile =
       await _writeOutput('assets/data/poetry_items_full.wvp', full);
+  final indexFile = await _writeSubsetIndex(
+      'assets/data/poetry_standard_index.wvi', full, selected);
   if (!args.contains('--no-report')) {
     _writeReport(
       tang,
@@ -209,7 +210,7 @@ Future<void> main(List<String> args) async {
       other,
       selected,
       full,
-      outFile,
+      indexFile,
       fullFile,
       translationStats,
     );
@@ -219,7 +220,7 @@ Future<void> main(List<String> args) async {
     '诗词候选：唐 ${tang.length}，宋诗词 ${song.length}，其他 ${other.length}',
   );
   stdout.writeln(
-    '默认 ${selected.length} 条（${outFile.lengthSync()} 字节），'
+    '默认 ${selected.length} 条（索引 ${indexFile.lengthSync()} 字节），'
     '全量 ${full.length} 条（${fullFile.lengthSync()} 字节）。',
   );
   stdout.writeln(
@@ -235,7 +236,7 @@ void _writeReport(
   List<_RawPoem> other,
   List<_RawPoem> selected,
   List<_RawPoem> full,
-  File defaultFile,
+  File indexFile,
   File fullFile,
   _TranslationImportStats translationStats,
 ) {
@@ -251,7 +252,7 @@ void _writeReport(
     ..writeln('- 唐诗候选：${tang.length} 首')
     ..writeln('- 宋诗词候选：${song.length} 首')
     ..writeln('- 其他诗词：${other.length} 首（全部进入默认库）')
-    ..writeln('- 默认库：${selected.length} 首，${defaultFile.lengthSync()} 字节')
+    ..writeln('- 默认库：${selected.length} 首，索引 ${indexFile.lengthSync()} 字节')
     ..writeln('- 全量库：${full.length} 首，${fullFile.lengthSync()} 字节')
     ..writeln('- 翻译包读取：${translationStats.read} 首；匹配现有 '
         '${translationStats.matched} 首；新增 ${translationStats.added} 首')
@@ -339,6 +340,30 @@ Future<File> _writeOutput(String path, List<_RawPoem> poems) async {
   return file;
 }
 
+Future<File> _writeSubsetIndex(
+    String path, List<_RawPoem> all, List<_RawPoem> selected) async {
+  final ordered = List<_RawPoem>.of(all)
+    ..sort((a, b) => a.shuffleKey.compareTo(b.shuffleKey));
+  final selectedSequences = selected.map((item) => item.sequence).toSet();
+  final bytes = Uint8List(16 + ((ordered.length + 7) >> 3));
+  bytes.setRange(0, 8, PoetryBinaryCodec.subsetSignature);
+  final header = ByteData.sublistView(bytes);
+  header.setUint32(8, ordered.length, Endian.little);
+  header.setUint32(12, selected.length, Endian.little);
+  var found = 0;
+  for (var index = 0; index < ordered.length; index++) {
+    if (!selectedSequences.contains(ordered[index].sequence)) continue;
+    bytes[16 + (index >> 3)] |= 1 << (index & 7);
+    found++;
+  }
+  if (found != selected.length) {
+    throw StateError('默认诗词库含有不在全量库中的条目');
+  }
+  final file = File(path);
+  await file.writeAsBytes(bytes);
+  return file;
+}
+
 int _recordLength(_RawPoem poem) =>
     40 +
     7 * 4 +
@@ -383,7 +408,7 @@ List<String> _poetryLines(Object? value) {
     _ => const <String>[],
   };
   final result = <String>[];
-  final sentencePattern = RegExp(r'[^。！？!?；;]+(?:[。！？!?；;]+|$)');
+  final sentencePattern = RegExp(r'[^。！？!?；;]+(?:[。！？!?；;]+[”’」』）》】〕）］｝)]*|$)');
   for (final rawValue in rawValues) {
     final normalized = _normalizeBreaks(rawValue);
     for (final physicalLine in normalized.split('\n')) {
@@ -394,7 +419,18 @@ List<String> _poetryLines(Object? value) {
           .map((match) => match.group(0)!.trim())
           .where((sentence) => sentence.isNotEmpty)
           .toList();
-      result.addAll(sentences.isEmpty ? [line] : sentences);
+      for (final sentence in sentences.isEmpty ? [line] : sentences) {
+        final leading = RegExp(r'^[，。！？；：、,.!?;:)]}）］｝】〕〉》」』”’…—]+')
+            .firstMatch(sentence)
+            ?.group(0);
+        if (leading == null || result.isEmpty) {
+          result.add(sentence);
+        } else {
+          result[result.length - 1] += leading;
+          final remaining = sentence.substring(leading.length);
+          if (remaining.isNotEmpty) result.add(remaining);
+        }
+      }
     }
   }
   return result;

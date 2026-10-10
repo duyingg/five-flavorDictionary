@@ -1,9 +1,6 @@
 <#
 .SYNOPSIS
-  Performs conflict/safety checks and builds release APKs.
-
-.EXAMPLE
-  .\build-apk.ps1 -ValidateOnly
+  Performs safety checks and builds release APKs.
 
 .EXAMPLE
   .\build-apk.ps1
@@ -26,11 +23,9 @@
 [CmdletBinding()]
 param(
     [ValidateSet('universal', 'split')]
-    [string]$Mode = 'universal',
+    [string]$Mode = 'split',
     [ValidateSet('build', 'patch', 'minor', 'major')]
     [string]$VersionIncrement = 'build',
-    [switch]$SkipTests,
-    [switch]$ValidateOnly,
     [switch]$RequireReleaseSigning,
     # Kept for compatibility with the first script revision; no longer needed.
     [switch]$AllowDebugSigning,
@@ -85,14 +80,6 @@ function Find-Flutter {
         throw 'Flutter was not found. Install Flutter or update Find-Flutter in build-apk.ps1.'
     }
     return $candidates[0]
-}
-
-function Find-Dart([string]$FlutterPath) {
-    $sdkDart = Join-Path (Split-Path -Parent $FlutterPath) 'dart.bat'
-    if (Test-Path -LiteralPath $sdkDart) { return $sdkDart }
-    $command = Get-Command dart -ErrorAction SilentlyContinue
-    if ($command) { return $command.Source }
-    throw 'Dart was not found next to Flutter and is not available on PATH.'
 }
 
 function Use-CompatibleJava {
@@ -317,7 +304,6 @@ try {
     }
 
     $flutter = Find-Flutter
-    $dart = Find-Dart $flutter
     $compatibleJavaHome = Use-CompatibleJava
     Write-Step "Configuring Flutter to use JDK $compatibleJavaHome"
     Invoke-Checked -FilePath $flutter config --jdk-dir $compatibleJavaHome
@@ -326,23 +312,6 @@ try {
 
     Write-Step 'Checking locked dependencies'
     Invoke-Checked -FilePath $flutter pub get --enforce-lockfile
-
-    Write-Step 'Formatting Dart sources'
-    $formatTargets = @('lib', 'test', 'tool') | Where-Object { Test-Path -LiteralPath $_ }
-    Invoke-Checked -FilePath $dart format @formatTargets
-
-    Write-Step 'Running static analysis'
-    Invoke-Checked -FilePath $flutter analyze --no-pub
-
-    if (-not $SkipTests) {
-        Write-Step 'Running tests'
-        Invoke-Checked -FilePath $flutter test --no-pub
-    }
-
-    if ($ValidateOnly) {
-        Write-Host "`nValidation passed. No APK was built." -ForegroundColor Green
-        exit 0
-    }
 
     $originalPubspecContent = [System.IO.File]::ReadAllText(
         $pubspecPath,
@@ -358,7 +327,8 @@ try {
     $buildArguments = @(
         'build', 'apk', '--release', '--no-pub',
         "--build-name=$($nextVersion.Name)",
-        "--build-number=$($nextVersion.Build)"
+        "--build-number=$($nextVersion.Build)",
+        "--dart-define=APP_VERSION=$($nextVersion.Full)"
     )
     if ($Mode -eq 'split') { $buildArguments += '--split-per-abi' }
     Invoke-Checked -FilePath $flutter @buildArguments

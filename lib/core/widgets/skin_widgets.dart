@@ -20,11 +20,16 @@ class SkinBackdrop extends StatelessWidget {
         if (bytes != null)
           Opacity(
             opacity: visuals!.backgroundOpacity,
-            child: Image.memory(
-              bytes,
-              fit: visuals.backgroundFit,
-              gaplessPlayback: true,
-              filterQuality: FilterQuality.medium,
+            child: LayoutBuilder(
+              builder: (context, constraints) => Image.memory(
+                bytes,
+                width: constraints.maxWidth,
+                height: constraints.maxHeight,
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
+                gaplessPlayback: true,
+                filterQuality: FilterQuality.medium,
+              ),
             ),
           ),
         child,

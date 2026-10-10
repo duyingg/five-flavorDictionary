@@ -1,4 +1,3 @@
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -70,11 +69,17 @@ class PoetryCatalog {
     required Uint32List recordOffsets,
     required Uint32List ascendingRecordIndexes,
     required int recordsStart,
+    Uint32List? subsetIndexes,
+    Uint32List? subsetAscendingIndexes,
+    Map<int, PoetryItem>? cache,
   })  : _data = data,
         _sharedStrings = sharedStrings,
         _recordOffsets = recordOffsets,
         _ascendingRecordIndexes = ascendingRecordIndexes,
-        _recordsStart = recordsStart;
+        _recordsStart = recordsStart,
+        _subsetIndexes = subsetIndexes,
+        _subsetAscendingIndexes = subsetAscendingIndexes,
+        _cache = cache ?? <int, PoetryItem>{};
 
   static const _cacheLimit = 256;
 
@@ -83,9 +88,57 @@ class PoetryCatalog {
   final Uint32List _recordOffsets;
   final Uint32List _ascendingRecordIndexes;
   final int _recordsStart;
-  final LinkedHashMap<int, PoetryItem> _cache = LinkedHashMap();
+  final Uint32List? _subsetIndexes;
+  final Uint32List? _subsetAscendingIndexes;
+  final Map<int, PoetryItem> _cache;
 
-  int get length => _recordOffsets.length - 1;
+  int get length => _subsetIndexes?.length ?? _recordOffsets.length - 1;
+
+  /// Shares the binary records with a compact membership index for the default library.
+  PoetryCatalog subset(ByteData index) {
+    if (_subsetIndexes != null) {
+      throw StateError('只能从完整诗词库创建默认库视图');
+    }
+    final reader = _BinaryReader(index)
+      ..expectBytes(PoetryBinaryCodec.subsetSignature);
+    final total = reader.readUint32();
+    final selected = reader.readUint32();
+    if (total != _recordOffsets.length - 1 ||
+        reader.remaining != (total + 7) >> 3 ||
+        selected > total) {
+      throw const FormatException('默认诗词库索引与全量资源不匹配');
+    }
+    final random = Uint32List(selected);
+    final selectedFlags = Uint8List(total);
+    var count = 0;
+    for (var record = 0; record < total; record++) {
+      final byte = index.getUint8(reader.offset + (record >> 3));
+      if (byte & (1 << (record & 7)) == 0) continue;
+      if (count >= selected) throw const FormatException('默认诗词库索引数量无效');
+      random[count++] = record;
+      selectedFlags[record] = 1;
+    }
+    if (count != selected) throw const FormatException('默认诗词库索引数量无效');
+    if (total & 7 != 0 &&
+        index.getUint8(index.lengthInBytes - 1) >> (total & 7) != 0) {
+      throw const FormatException('默认诗词库索引包含无效的尾部数据');
+    }
+    final ascending = Uint32List(selected);
+    count = 0;
+    for (final record in _ascendingRecordIndexes) {
+      if (selectedFlags[record] != 0) ascending[count++] = record;
+    }
+    return PoetryCatalog._(
+      data: _data,
+      sharedStrings: _sharedStrings,
+      recordOffsets: _recordOffsets,
+      ascendingRecordIndexes: _ascendingRecordIndexes,
+      recordsStart: _recordsStart,
+      subsetIndexes: random,
+      subsetAscendingIndexes: ascending,
+      cache: _cache,
+    );
+  }
 
   PoetrySelection select(PoetryQuery query) {
     if (!query.hasFilters) {
@@ -133,15 +186,17 @@ class PoetryCatalog {
   int recordIndexAt(int position, PoetryOrder order) {
     RangeError.checkValidIndex(position, this, 'position', length);
     return switch (order) {
-      PoetryOrder.random => position,
-      PoetryOrder.ascending => _ascendingRecordIndexes[position],
-      PoetryOrder.descending =>
-        _ascendingRecordIndexes[_ascendingRecordIndexes.length - position - 1],
+      PoetryOrder.random => _subsetIndexes?[position] ?? position,
+      PoetryOrder.ascending =>
+        _subsetAscendingIndexes?[position] ?? _ascendingRecordIndexes[position],
+      PoetryOrder.descending => (_subsetAscendingIndexes ??
+          _ascendingRecordIndexes)[length - position - 1],
     };
   }
 
   PoetryItem itemAt(int recordIndex) {
-    RangeError.checkValidIndex(recordIndex, this, 'recordIndex', length);
+    RangeError.checkValidIndex(
+        recordIndex, this, 'recordIndex', _recordOffsets.length - 1);
     final cached = _cache.remove(recordIndex);
     if (cached != null) {
       _cache[recordIndex] = cached;
@@ -188,10 +243,11 @@ class PoetryCatalog {
         separator < 0 ? null : int.tryParse(id.substring(separator + 1));
     if (sequence == null) return null;
     var low = 0;
-    var high = _ascendingRecordIndexes.length - 1;
+    final ascending = _subsetAscendingIndexes ?? _ascendingRecordIndexes;
+    var high = ascending.length - 1;
     while (low <= high) {
       final middle = (low + high) >> 1;
-      final recordIndex = _ascendingRecordIndexes[middle];
+      final recordIndex = ascending[middle];
       final candidate = _sequenceAt(recordIndex);
       if (candidate == sequence) {
         final item = itemAt(recordIndex);
@@ -260,6 +316,16 @@ class PoetryCatalog {
 
 /// Reader for version 2 of the Five-Flavor poetry binary format.
 abstract final class PoetryBinaryCodec {
+  static const subsetSignature = <int>[
+    0x57,
+    0x55,
+    0x57,
+    0x45,
+    0x53,
+    0x55,
+    0x42,
+    0x31
+  ];
   static const signature = <int>[
     0x57,
     0x55,

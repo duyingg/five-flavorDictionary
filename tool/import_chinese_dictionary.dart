@@ -278,6 +278,23 @@ void main() {
     });
   }
 
+  final levelsByCharacter = {
+    for (final entry in output)
+      entry['character'] as String: entry['characterLevel'] as int,
+  };
+  for (final entry in output) {
+    if (entry['script'] != 'traditional') continue;
+    final relatedLevels = (entry['simplifiedForms'] as List)
+        .whereType<String>()
+        .map((form) => levelsByCharacter[form])
+        .whereType<int>()
+        .toList();
+    if (relatedLevels.isNotEmpty) {
+      entry['characterLevel'] = relatedLevels
+          .reduce((current, next) => current < next ? current : next);
+    }
+  }
+
   output.sort((a, b) => (indexByCharacter[a['character']] ?? 0)
       .compareTo(indexByCharacter[b['character']] ?? 0));
   File(_outputPath).writeAsStringSync(

@@ -11,6 +11,8 @@ import '../../core/language/pinyin_utils.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../domain/character_visibility.dart';
 import '../domain/models.dart';
+import 'favorite_feedback.dart';
+import 'favorite_item.dart';
 
 class LearningPage extends StatelessWidget {
   const LearningPage({super.key});
@@ -21,7 +23,25 @@ class LearningPage extends StatelessWidget {
       Icons.calendar_month_outlined,
       AppRoutes.learningToday
     ),
-    ('汉字收藏', '查看你收藏的汉字', Icons.star, AppRoutes.learningFavorites),
+    (
+      '小学语文生字',
+      '按年级和上下册学习统编版写字表',
+      Icons.school_outlined,
+      AppRoutes.learningPrimarySchoolCharacters
+    ),
+    (
+      '文言文字典',
+      '查询字词释义与典籍中的原句',
+      Icons.menu_book_outlined,
+      AppRoutes.learningClassicalDictionary
+    ),
+    (
+      '词语成语学习',
+      '输入词语或按逐字拼音查找',
+      Icons.library_books_outlined,
+      AppRoutes.learningWordStudy
+    ),
+    ('收藏', '查看收藏的汉字、词语、成语和诗词', Icons.star, AppRoutes.learningFavorites),
     ('猜汉字', '趣味猜字，增长知识', Icons.quiz_outlined, AppRoutes.learningGuess),
     ('造句', '用汉字造句练习', Icons.edit_outlined, AppRoutes.learningSentence),
     (
@@ -156,14 +176,34 @@ class TodayCharacterPage extends ConsumerWidget {
       );
 }
 
-class FavoritesPage extends ConsumerWidget {
+enum _FavoriteFilter { all, character, word, idiom, poetry }
+
+class FavoritesPage extends ConsumerStatefulWidget {
   const FavoritesPage({super.key});
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FavoritesPage> createState() => _FavoritesPageState();
+}
+
+class _FavoritesPageState extends ConsumerState<FavoritesPage> {
+  _FavoriteFilter _filter = _FavoriteFilter.all;
+
+  bool _matches(FavoriteItem item) => switch (_filter) {
+        _FavoriteFilter.all => true,
+        _FavoriteFilter.character => item.kind == FavoriteKind.character,
+        _FavoriteFilter.word =>
+          item.kind == FavoriteKind.word && item.value.characters.length != 4,
+        _FavoriteFilter.idiom =>
+          item.kind == FavoriteKind.word && item.value.characters.length == 4,
+        _FavoriteFilter.poetry => item.kind == FavoriteKind.poetry,
+      };
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(favoritesControllerProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('汉字收藏'),
+        title: const Text('收藏'),
         actions: [
           if (state.valueOrNull?.isNotEmpty ?? false)
             IconButton(
@@ -176,33 +216,90 @@ class FavoritesPage extends ConsumerWidget {
         data: (items) => items.isEmpty
             ? const EmptyState(
                 title: '还没有收藏',
-                message: '在汉字详情页点击星标即可收藏',
+                message: '在汉字、词语或诗词详情页点击星标即可收藏',
                 icon: Icons.star_border)
-            : ListView(
-                padding: const EdgeInsets.all(20),
-                children: [
-                  for (final value in items)
-                    Card(
-                        child: ListTile(
-                            onTap: () =>
-                                context.push(AppRoutes.character(value)),
-                            leading: Text(value,
-                                style: const TextStyle(fontSize: 36)),
-                            title: const Text('查看汉字详情'),
-                            trailing: IconButton(
-                                onPressed: () => ref
-                                    .read(favoritesControllerProvider.notifier)
-                                    .toggle(value),
-                                icon: Icon(Icons.star,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .secondary))))
-                ],
-              ),
+            : Builder(builder: (context) {
+                final visible = items
+                    .map(FavoriteItem.parse)
+                    .whereType<FavoriteItem>()
+                    .where(_matches)
+                    .toList()
+                  ..sort((a, b) => a.value.compareTo(b.value));
+                return ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      for (final (filter, label) in const [
+                        (_FavoriteFilter.all, '全部'),
+                        (_FavoriteFilter.character, '汉字'),
+                        (_FavoriteFilter.word, '词语'),
+                        (_FavoriteFilter.idiom, '成语'),
+                        (_FavoriteFilter.poetry, '古诗'),
+                      ])
+                        ChoiceChip(
+                          label: Text(label),
+                          selected: _filter == filter,
+                          onSelected: (_) => setState(() => _filter = filter),
+                        ),
+                    ]),
+                    const SizedBox(height: 12),
+                    if (visible.isEmpty)
+                      const EmptyState(
+                        title: '此类暂无收藏',
+                        message: '可以切换其他分类查看',
+                      ),
+                    for (final favorite in visible)
+                      _favoriteTile(context, ref, favorite),
+                  ],
+                );
+              }),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => const EmptyState(title: '读取失败', message: '无法读取本地收藏'),
       ),
     );
+  }
+
+  Widget _favoriteTile(BuildContext context, WidgetRef ref, FavoriteItem item) {
+    final route = switch (item.kind) {
+      FavoriteKind.character => AppRoutes.character(item.value),
+      FavoriteKind.word => AppRoutes.word(item.value),
+      FavoriteKind.poetry => AppRoutes.poetryDetail(item.value),
+    };
+    return Card(
+      child: ListTile(
+        onTap: () => context.push(route),
+        leading: item.kind == FavoriteKind.character
+            ? Text(item.value, style: const TextStyle(fontSize: 36))
+            : Icon(item.kind == FavoriteKind.poetry
+                ? Icons.auto_stories_outlined
+                : Icons.menu_book_outlined),
+        title: item.kind == FavoriteKind.poetry
+            ? FutureBuilder<PoetryItem?>(
+                future: _poem(ref, item.value),
+                builder: (_, snapshot) =>
+                    Text(snapshot.data?.title ?? '诗词（${item.value}）'),
+              )
+            : Text(item.value),
+        subtitle: Text(switch (item.kind) {
+          FavoriteKind.character => '汉字',
+          FavoriteKind.word => item.value.characters.length == 4 ? '成语' : '词语',
+          FavoriteKind.poetry => '古诗',
+        }),
+        trailing: IconButton(
+          tooltip: '取消收藏',
+          onPressed: () =>
+              toggleFavoriteWithFeedback(context, ref, item.storageKey),
+          icon:
+              Icon(Icons.star, color: Theme.of(context).colorScheme.secondary),
+        ),
+      ),
+    );
+  }
+
+  Future<PoetryItem?> _poem(WidgetRef ref, String id) async {
+    final repository = ref.read(poetryRepositoryProvider);
+    return await repository.getById(id) ??
+        await repository.getById(id, fullLibrary: true);
   }
 
   Future<void> _confirmClear(BuildContext context, WidgetRef ref) async {
@@ -210,7 +307,7 @@ class FavoritesPage extends ConsumerWidget {
         context: context,
         builder: (_) => AlertDialog(
                 title: const Text('清空收藏？'),
-                content: const Text('此操作会移除全部收藏汉字。'),
+                content: const Text('此操作会移除全部收藏内容。'),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(context, false),
@@ -274,7 +371,7 @@ class _GuessCharacterPageState extends ConsumerState<GuessCharacterPage> {
         .where((entry) =>
             entry.isVisibleFor(
               display: settings.scriptDisplay,
-              maxLevel: settings.maxCharacterLevel,
+              maxLevel: min(settings.maxCharacterLevel, 2),
             ) &&
             entry.pinyin.isNotEmpty &&
             !entry.pinyin.any(PinyinUtils.isCompoundReading) &&
@@ -385,7 +482,7 @@ class _GuessCharacterPageState extends ConsumerState<GuessCharacterPage> {
                         _PinyinChoicePool(
                           key: ValueKey(entry.character),
                           acceptedReadings: entry.pinyin,
-                          onAnswer: _answer,
+                          onAnswer: (reading) => _answer(reading != null),
                         ),
                         const SizedBox(height: 20),
                         Row(children: [
@@ -400,11 +497,11 @@ class _GuessCharacterPageState extends ConsumerState<GuessCharacterPage> {
                         if (showHint) ...[
                           const Divider(height: 30),
                           const Align(
-                              alignment: Alignment.centerLeft,
+                              alignment: AlignmentDirectional.centerStart,
                               child: Text('文字语义')),
                           if (entry.senses.isNotEmpty)
                             Align(
-                              alignment: Alignment.centerLeft,
+                              alignment: AlignmentDirectional.centerStart,
                               child: Text(entry.senses
                                   .map((sense) => sense.definition)
                                   .join('\n')),
@@ -445,18 +542,13 @@ class PolyphonicLearningPage extends ConsumerWidget {
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
-            Text(
-              '闯关使用已整理关卡；无尽模式会随进度扩充题库。',
-              style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
             const SizedBox(height: 20),
             _PolyphonicModeCard(
               icon: Icons.route_outlined,
               title: '闯关',
               progress:
                   '当前第 ${min(ref.watch(polyphonicChallengeLevelProvider) + 1, 100)} 关',
-              description: '按固定词组依次猜出每个字的全部读音。',
+              description: '猜出多音字的全部读音',
               onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
                 builder: (_) => const _PolyphonicChallengePage(),
               )),
@@ -467,7 +559,7 @@ class PolyphonicLearningPage extends ConsumerWidget {
               title: '无尽模式',
               progress:
                   '当前第 ${ref.watch(polyphonicEndlessCorrectProvider) ~/ 10 + 1} 轮',
-              description: '随机练习；猜中十个后解锁一、二级扩展题库。',
+              description: '随机挑战，关卡会随着轮次增加难度',
               onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
                 builder: (_) => const _PolyphonicEndlessPage(),
               )),
@@ -560,7 +652,7 @@ class _PinyinChoicePool extends StatefulWidget {
     required this.onAnswer,
   });
   final List<String> acceptedReadings;
-  final ValueChanged<bool> onAnswer;
+  final ValueChanged<String?> onAnswer;
 
   @override
   State<_PinyinChoicePool> createState() => _PinyinChoicePoolState();
@@ -640,11 +732,16 @@ class _PinyinChoicePoolState extends State<_PinyinChoicePool> {
 
   void _submit() {
     if (_initial == null || _final == null || _tone == null) return;
-    final correct = widget.acceptedReadings.any((reading) =>
-        PinyinUtils.initialOf(reading) == _initial &&
-        PinyinUtils.finalOf(reading) == _final &&
-        PinyinUtils.toneOf(reading) == _tone);
-    widget.onAnswer(correct);
+    String? matchedReading;
+    for (final reading in widget.acceptedReadings) {
+      if (PinyinUtils.initialOf(reading) == _initial &&
+          PinyinUtils.finalOf(reading) == _final &&
+          PinyinUtils.toneOf(reading) == _tone) {
+        matchedReading = reading;
+        break;
+      }
+    }
+    widget.onAnswer(matchedReading);
   }
 
   @override
@@ -730,7 +827,7 @@ class _PolyphonicChallengePageState
               style: TextStyle(color: Theme.of(context).colorScheme.primary)),
           const Divider(height: 28),
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: Text(
               meaning.isEmpty ? '当前字典尚未收录该读音的释义。' : meaning,
               style: const TextStyle(height: 1.6),
@@ -801,7 +898,7 @@ class _PolyphonicChallengePageState
                       child: Padding(
                         padding: const EdgeInsets.all(28),
                         child: Column(children: [
-                          const Text('请选择词组中这个字的读音'),
+                          Text('请选择词组中“${lesson.character}”的读音'),
                           const SizedBox(height: 18),
                           Text(lesson.phrases[_reading],
                               style: const TextStyle(
@@ -831,7 +928,8 @@ class _PolyphonicChallengePageState
                           _PinyinChoicePool(
                             key: ValueKey('${lesson.level}-$_reading'),
                             acceptedReadings: [lesson.readings[_reading]],
-                            onAnswer: (value) => _answer(value, lessons),
+                            onAnswer: (reading) =>
+                                _answer(reading != null, lessons),
                           ),
                           if (_correct != null) ...[
                             const SizedBox(height: 14),
@@ -870,7 +968,12 @@ class _PolyphonicEndlessPageState
   final _random = Random();
   ChineseEntry? _current;
   var _correctCount = 0;
-  bool? _correct;
+  final _guessedReadings = <String>{};
+  String? _feedback;
+  bool _advancing = false;
+
+  String _readingKey(String reading) =>
+      '${PinyinUtils.initialOf(reading)}|${PinyinUtils.finalOf(reading)}|${PinyinUtils.toneOf(reading)}';
 
   @override
   void initState() {
@@ -921,9 +1024,26 @@ class _PolyphonicEndlessPageState
     return next;
   }
 
-  void _answer(bool value, _EndlessData data) {
-    setState(() => _correct = value);
-    if (!value) return;
+  void _answer(String? reading, _EndlessData data) {
+    if (_advancing) return;
+    if (reading == null) {
+      setState(() => _feedback = '读音不正确');
+      return;
+    }
+    final key = _readingKey(reading);
+    if (_guessedReadings.contains(key)) {
+      setState(() => _feedback = '这个读音已答对');
+      return;
+    }
+    final required = _current!.pinyin.map(_readingKey).toSet();
+    setState(() {
+      _guessedReadings.add(key);
+      _feedback = _guessedReadings.length == required.length
+          ? '全部读音答对'
+          : '回答正确，继续回答其他读音';
+      _advancing = _guessedReadings.length == required.length;
+    });
+    if (!_advancing) return;
     Future<void>.delayed(const Duration(milliseconds: 450), () {
       if (!mounted) return;
       setState(() {
@@ -931,7 +1051,9 @@ class _PolyphonicEndlessPageState
         ref.read(polyphonicEndlessCorrectProvider.notifier).state =
             _correctCount;
         _current = _pick(data);
-        _correct = null;
+        _guessedReadings.clear();
+        _feedback = null;
+        _advancing = false;
       });
     });
   }
@@ -959,31 +1081,28 @@ class _PolyphonicEndlessPageState
                   const Spacer(),
                   Text('已猜中 $_correctCount 个'),
                 ]),
-                if (_correctCount < 10)
-                  Text('再猜中若干字，将解锁一、二级扩展题库',
-                      style: TextStyle(
-                          color:
-                              Theme.of(context).colorScheme.onSurfaceVariant)),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(28),
                     child: Column(children: [
-                      const Text('这个多音字有哪些读音？'),
+                      const Text('请答出这个字的全部读音'),
                       Text(entry.character,
                           style: const TextStyle(fontSize: 100)),
+                      Text(
+                          '已答对 ${_guessedReadings.length}/${entry.pinyin.map(_readingKey).toSet().length} 个读音'),
                       _PinyinChoicePool(
                         key: ValueKey(
                             '$entry-${entry.character}-$_correctCount'),
                         acceptedReadings: entry.pinyin,
-                        onAnswer: (value) => _answer(value, data),
+                        onAnswer: (reading) => _answer(reading, data),
                       ),
-                      if (_correct != null) ...[
+                      if (_feedback != null) ...[
                         const SizedBox(height: 14),
-                        Text(_correct! ? '回答正确' : '读音不正确',
+                        Text(_feedback!,
                             style: TextStyle(
-                                color: _correct!
-                                    ? Colors.green
-                                    : Theme.of(context).colorScheme.error)),
+                                color: _feedback == '读音不正确'
+                                    ? Theme.of(context).colorScheme.error
+                                    : Colors.green)),
                       ],
                     ]),
                   ),
@@ -1019,7 +1138,7 @@ class _SentencePageState extends ConsumerState<SentencePage> {
     final todayCharacters = ref.watch(todayCharactersProvider);
     return Scaffold(
       appBar: AppBar(
-        title: Text(_selecting ? '已选择 ${_selectedIds.length} 项' : '造句便签'),
+        title: Text(_selecting ? '已选择 ${_selectedIds.length} 项' : '造句'),
         actions: _buildActions(notes.valueOrNull ?? const []),
       ),
       body: ResponsiveContent(
@@ -1052,7 +1171,7 @@ class _SentencePageState extends ConsumerState<SentencePage> {
                     ? const SliverToBoxAdapter(
                         child: EmptyState(
                           title: '还没有造句',
-                          message: '选择今日一级字，写下第一条造句便签。',
+                          message: '选择今日汉字，写下第一条造句。',
                         ),
                       )
                     : SliverList.separated(
@@ -1079,7 +1198,7 @@ class _SentencePageState extends ConsumerState<SentencePage> {
                 ),
                 error: (_, __) => const SliverToBoxAdapter(
                   child: EmptyState(
-                    title: '便签加载失败',
+                    title: '造句加载失败',
                     message: '请重新打开页面后再试。',
                   ),
                 ),
@@ -1164,7 +1283,7 @@ class _SentencePageState extends ConsumerState<SentencePage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除造句便签？'),
+        title: const Text('删除造句？'),
         content: Text('将删除选中的 $count 条记录，此操作无法撤销。'),
         actions: [
           TextButton(
@@ -1218,10 +1337,10 @@ class _SentenceComposer extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('新建便签', style: Theme.of(context).textTheme.titleLarge),
+            Text('新建造句', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 4),
             Text(
-              '从今日 6 个一级字中选择一个来造句',
+              '从今日 6 个汉字中选择一个来造句',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -1255,11 +1374,11 @@ class _SentenceComposer extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Align(
-              alignment: Alignment.centerRight,
+              alignment: AlignmentDirectional.centerEnd,
               child: FilledButton.icon(
                 onPressed: active == null ? null : () => onSave(active),
                 icon: const Icon(Icons.save_outlined),
-                label: const Text('保存便签'),
+                label: const Text('保存造句'),
               ),
             ),
           ],

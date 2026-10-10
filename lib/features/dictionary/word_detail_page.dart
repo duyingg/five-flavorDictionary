@@ -9,6 +9,8 @@ import '../../app/providers.dart';
 import '../../core/language/zhuyin_utils.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../domain/models.dart';
+import '../learning/favorite_item.dart';
+import '../learning/favorite_feedback.dart';
 import 'dictionary_pages.dart';
 import 'single_han_validator.dart';
 
@@ -57,79 +59,89 @@ class _WordDetailPageState extends ConsumerState<WordDetailPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('词语详情'),
-          actions: [
-            IconButton(
-              tooltip: '返回首页',
-              onPressed: () => context.go(AppRoutes.home),
-              icon: const Icon(Icons.home_outlined),
-            ),
-          ],
-        ),
-        body: FutureBuilder<_WordDetailData?>(
-          future: _future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final data = snapshot.data;
-            if (data == null) {
-              return const EmptyState(
-                title: '无法查询',
-                message: '请输入两个或更多连续汉字。',
-              );
-            }
-            return ResponsiveContent(
-              maxWidth: 900,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                children: [
-                  _WordHeading(data: data),
-                  const SizedBox(height: 18),
-                  _WordDefinitionCard(data: data),
-                  const SizedBox(height: 28),
-                  Text('逐字查询',
-                      style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: 6),
-                  Text(
-                    '以下内容与单独查询每个汉字时一致。',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  for (var index = 0;
-                      index < data.characters.length;
-                      index++) ...[
-                    if (data.entries[index] case final entry?)
-                      Card(
-                        clipBehavior: Clip.antiAlias,
-                        child: CharacterDetailContent(
-                          entry: entry,
-                          embedded: true,
-                        ),
-                      )
-                    else
-                      Card(
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            child: Text(data.characters[index]),
-                          ),
-                          title: Text('${data.characters[index]}（未收录）'),
-                          subtitle: const Text('当前单字词库暂无该字详情。'),
-                        ),
-                      ),
-                    if (index != data.characters.length - 1)
-                      const SizedBox(height: 14),
-                  ],
-                ],
-              ),
+  Widget build(BuildContext context) {
+    final key = FavoriteItem(FavoriteKind.word, widget.value).storageKey;
+    final isFavorite =
+        ref.watch(favoritesControllerProvider).valueOrNull?.contains(key) ??
+            false;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('词语详情'),
+        actions: [
+          IconButton(
+            tooltip: isFavorite ? '取消收藏词语' : '收藏词语',
+            onPressed: () => toggleFavoriteWithFeedback(context, ref, key),
+            icon: Icon(isFavorite ? Icons.star : Icons.star_border),
+          ),
+          IconButton(
+            tooltip: '返回首页',
+            onPressed: () => context.go(AppRoutes.home),
+            icon: const Icon(Icons.home_outlined),
+          ),
+        ],
+      ),
+      body: FutureBuilder<_WordDetailData?>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final data = snapshot.data;
+          if (data == null) {
+            return const EmptyState(
+              title: '无法查询',
+              message: '请输入两个或更多连续汉字。',
             );
-          },
-        ),
-      );
+          }
+          return ResponsiveContent(
+            maxWidth: 900,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+              children: [
+                _WordHeading(data: data),
+                const SizedBox(height: 18),
+                _WordDefinitionCard(data: data),
+                const SizedBox(height: 28),
+                Text('逐字查询', style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 6),
+                Text(
+                  '以下内容与单独查询每个汉字时一致。',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                for (var index = 0;
+                    index < data.characters.length;
+                    index++) ...[
+                  if (data.entries[index] case final entry?)
+                    Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: CharacterDetailContent(
+                        entry: entry,
+                        embedded: true,
+                      ),
+                    )
+                  else
+                    Card(
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          child: Text(data.characters[index]),
+                        ),
+                        title: Text('${data.characters[index]}（未收录）'),
+                        subtitle: const Text('当前单字词库暂无该字详情。'),
+                      ),
+                    ),
+                  if (index != data.characters.length - 1)
+                    const SizedBox(height: 14),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
 
 class _WordHeading extends ConsumerWidget {

@@ -8,6 +8,7 @@ import '../../core/language/zhuyin_utils.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../core/widgets/global_han_lookup.dart';
 import '../domain/models.dart';
+import '../learning/favorite_feedback.dart';
 import 'single_han_validator.dart';
 import 'stroke_order_view.dart';
 
@@ -96,8 +97,8 @@ class _CharacterDetailContentState
     final settings = ref.watch(settingsControllerProvider).valueOrNull ??
         const AppSettings();
     final scriptRelations = _scriptRelationLabels(entry);
-    final showStrokeOrder =
-        settings.showStrokeOrder && entry.strokeOrderAsset != null;
+    final showGlyphAndStroke = settings.showStrokeOrder;
+    final hasStrokeOrder = entry.strokeOrderAsset != null;
     final children = <Widget>[
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,9 +212,8 @@ class _CharacterDetailContentState
           ),
           IconButton(
             tooltip: favorites.contains(entry.character) ? '取消收藏' : '收藏',
-            onPressed: () => ref
-                .read(favoritesControllerProvider.notifier)
-                .toggle(entry.character),
+            onPressed: () =>
+                toggleFavoriteWithFeedback(context, ref, entry.character),
             icon: Icon(
               favorites.contains(entry.character)
                   ? Icons.star
@@ -224,44 +224,46 @@ class _CharacterDetailContentState
           ),
         ],
       ),
-      const Divider(height: 36),
-      Row(
-        children: [
-          Text(
-            showStrokeOrder ? '笔顺' : '字形展示',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const Spacer(),
-          if (showStrokeOrder)
+      if (showGlyphAndStroke) ...[
+        const Divider(height: 36),
+        Row(
+          children: [
             Text(
-              '共 ${entry.strokeCount} 画',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              hasStrokeOrder ? '字形与笔顺' : '字形展示',
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-        ],
-      ),
-      const SizedBox(height: 12),
-      Center(
-        child: SizedBox.square(
-          dimension: 260,
-          child: Card(
-            margin: EdgeInsets.zero,
-            clipBehavior: Clip.antiAlias,
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: showStrokeOrder
-                  ? StrokeOrderView(assetPath: entry.strokeOrderAsset!)
-                  : GlobalHanLookupBlocker(
-                      child: _StaticCharacterGlyph(
-                        character: entry.character,
-                        key: const Key('static-character-display'),
+            const Spacer(),
+            if (hasStrokeOrder)
+              Text(
+                '共 ${entry.strokeCount} 画',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Center(
+          child: SizedBox.square(
+            dimension: 260,
+            child: Card(
+              margin: EdgeInsets.zero,
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: hasStrokeOrder
+                    ? StrokeOrderView(assetPath: entry.strokeOrderAsset!)
+                    : GlobalHanLookupBlocker(
+                        child: _StaticCharacterGlyph(
+                          character: entry.character,
+                          key: const Key('static-character-display'),
+                        ),
                       ),
-                    ),
+              ),
             ),
           ),
         ),
-      ),
+      ],
       const Divider(height: 36),
       Text('释义', style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 12),
@@ -319,11 +321,6 @@ class _CharacterDetailContentState
         const SizedBox(height: 8),
         Text(entry.decomposition!),
       ],
-      const SizedBox(height: 30),
-      Text('数据来源：${entry.sourceId}',
-          style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontSize: 12)),
     ];
     if (embedded) {
       return SelectionArea(

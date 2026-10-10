@@ -115,6 +115,24 @@ class _CharacterTestRepository extends _IndexTestRepository {
       character == entry.character ? entry : null;
 }
 
+class _DifficultTestRepository extends _IndexTestRepository {
+  @override
+  Future<List<ChineseEntry>> all() async => [
+        for (var stroke = 1; stroke <= 20; stroke++)
+          ChineseEntry(
+            character: String.fromCharCode(0x4e00 + stroke),
+            pinyin: const ['bā'],
+            radical: '',
+            strokeCount: stroke,
+            structure: '独体',
+            unicode: 'test-$stroke',
+            senses: const [],
+            sourceId: 'test',
+            difficult: true,
+          ),
+      ];
+}
+
 class _HomeWordDictionaryRepository implements DictionaryRepository {
   static const entries = [
     ChineseEntry(
@@ -172,6 +190,19 @@ class _HomeWordRepository implements WordRepository {
       : null;
 }
 
+class _TestDailyRepository implements DailyContentRepository {
+  @override
+  Future<List<DailyContent>> getByType(DailyContentType type) async => [
+        DailyContent(
+          id: type.name,
+          type: type,
+          title: '测试内容',
+          summary: '',
+          sourceId: 'test',
+        ),
+      ];
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({
         PreferencesKeys.bundledSkinsSeeded: true,
@@ -204,6 +235,12 @@ void main() {
     await tester.tap(find.text('学习').last);
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('今日汉字'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('小学语文生字'),
+      240,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('小学语文生字'), findsOneWidget);
     await tester.tap(find.text('文化').last);
     await tester.pump(const Duration(seconds: 2));
     expect(find.text('诸子百家'), findsOneWidget);
@@ -233,6 +270,29 @@ void main() {
     expect(find.text('侧边栏宽度'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('左手模式镜像首页每日内容操作', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      PreferencesKeys.bundledSkinsSeeded: true,
+      PrivacyPolicy.acceptedKey: true,
+      PreferencesKeys.leftHanded: true,
+      PreferencesKeys.dailyType: DailyContentType.word.name,
+    });
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        dailyContentRepositoryProvider
+            .overrideWithValue(_TestDailyRepository()),
+      ],
+      child: const DictionaryApp(),
+    ));
+    await pumpUntilFound(tester, find.text('首页'));
+    await tester.tap(find.text('首页').last);
+    await pumpUntilFound(tester, find.text('换一个'));
+    final title = find.text('每日词语');
+    expect(Directionality.of(tester.element(title)), TextDirection.rtl);
+    expect(tester.getTopLeft(find.text('换一个')).dx,
+        lessThan(tester.getTopLeft(title).dx));
   });
 
   testWidgets('首页支持词语查询并进入词语详情', (tester) async {
@@ -298,6 +358,59 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
+  testWidgets('拼音索引滚动到 F 时侧边栏同步选中 F', (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        dictionaryRepositoryProvider.overrideWithValue(_IndexTestRepository()),
+      ],
+      child: const MaterialApp(
+        home: IndexSearchPage(type: IndexSearchType.pinyin),
+      ),
+    ));
+    await pumpUntilFound(tester, find.byType(Scrollbar));
+    final scrollable = find.descendant(
+        of: find.byType(Scrollbar), matching: find.byType(Scrollable));
+    await tester.scrollUntilVisible(find.text('F 部'), 500,
+        scrollable: scrollable);
+    await Scrollable.ensureVisible(tester.element(find.text('F 部')),
+        alignment: 0);
+    await tester.pumpAndSettle();
+    expect(
+        tester.widget<Text>(find.text('F')).style?.fontWeight, FontWeight.w600);
+  });
+
+  for (final (type, heading, railLabel) in [
+    (IndexSearchType.radical, '8 画部首', '8画'),
+    (IndexSearchType.stroke, '8 画 · 1 字', '8画'),
+    (IndexSearchType.difficult, '8 画 · 1 字', '8画'),
+    (IndexSearchType.rhyme, 'ang 韵', 'ang'),
+  ]) {
+    testWidgets('${type.title}滚动时侧边栏同步选中当前分组', (tester) async {
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          dictionaryRepositoryProvider.overrideWithValue(
+            type == IndexSearchType.difficult
+                ? _DifficultTestRepository()
+                : _IndexTestRepository(),
+          ),
+        ],
+        child: MaterialApp(home: IndexSearchPage(type: type)),
+      ));
+      await tester.pumpAndSettle();
+      final scrollable = type == IndexSearchType.stroke
+          ? find.byType(Scrollable).last
+          : find.descendant(
+              of: find.byType(Scrollbar), matching: find.byType(Scrollable));
+      await tester.scrollUntilVisible(find.text(heading), 450,
+          scrollable: scrollable);
+      await Scrollable.ensureVisible(tester.element(find.text(heading)),
+          alignment: 0);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Text>(find.text(railLabel)).style?.fontWeight,
+          FontWeight.w600);
+    });
+  }
+
   testWidgets('部首侧边栏可跳到尚未渲染的远处分组', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -326,6 +439,30 @@ void main() {
       greaterThan(100),
     );
     expect(find.text('8 画部首'), findsOneWidget);
+  });
+
+  testWidgets('笔画查询可纵向滑动跨越所选笔画', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          dictionaryRepositoryProvider
+              .overrideWithValue(_IndexTestRepository()),
+        ],
+        child: const MaterialApp(
+          home: IndexSearchPage(type: IndexSearchType.stroke),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('1 画 · 1 字'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('3 画 · 1 字'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('3 画 · 1 字'), findsOneWidget);
   });
 
   testWidgets('汉字详情只标注不同的对应字形', (tester) async {
@@ -431,6 +568,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('https://v.wjx.cn/vm/wk2BGhD.aspx#'), findsOneWidget);
+    expect(find.text('反馈交流群'), findsOneWidget);
+    expect(find.text('334843809'), findsOneWidget);
     expect(find.bySemanticsLabel('五味字典使用反馈问卷二维码'), findsOneWidget);
     expect(find.textContaining('@'), findsNothing);
 

@@ -16,7 +16,6 @@ abstract final class AppColors {
 
 abstract final class AppTheme {
   static ThemeData build(
-    double scale,
     AppSkin skin, [
     ImportedSkin? importedSkin,
   ]) {
@@ -45,7 +44,6 @@ abstract final class AppTheme {
     final scaledTextTheme = base.textTheme.apply(
       bodyColor: spec.text,
       displayColor: spec.text,
-      fontSizeFactor: scale,
     );
     return base.copyWith(
       textTheme: _normalizedTextTheme(scaledTextTheme),

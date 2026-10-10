@@ -8,6 +8,9 @@ import '../features/dictionary/word_detail_page.dart';
 import '../features/home/home_page.dart';
 import '../features/index_search/index_search_page.dart';
 import '../features/learning/learning_pages.dart';
+import '../features/learning/primary_school_characters_page.dart';
+import '../features/learning/word_study_page.dart';
+import '../features/learning/classical_dictionary_page.dart';
 import '../features/profile/profile_pages.dart';
 import '../core/widgets/global_han_lookup.dart';
 import 'app_routes.dart';
@@ -76,6 +79,18 @@ final appRouter = GoRouter(
         path: AppRoutes.learningPolyphonic,
         parentNavigatorKey: rootNavigatorKey,
         builder: (_, __) => const PolyphonicLearningPage()),
+    GoRoute(
+        path: AppRoutes.learningPrimarySchoolCharacters,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (_, __) => const PrimarySchoolCharactersPage()),
+    GoRoute(
+        path: AppRoutes.learningClassicalDictionary,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (_, __) => const ClassicalDictionaryPage()),
+    GoRoute(
+        path: AppRoutes.learningWordStudy,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (_, __) => const WordStudyPage()),
     GoRoute(
         path: AppRoutes.cultureDetailPattern,
         parentNavigatorKey: rootNavigatorKey,

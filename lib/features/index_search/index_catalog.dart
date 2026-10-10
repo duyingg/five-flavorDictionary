@@ -179,16 +179,11 @@ class IndexCatalog {
 
   Map<int, List<ChineseEntry>> _buildDifficultByStroke() {
     final groups = <int, List<ChineseEntry>>{};
-    final compound = entries
-        .where((entry) => entry.pinyin.any(PinyinUtils.isCompoundReading))
-        .toList()
-      ..sort(_entryOrder);
-    if (compound.isNotEmpty) groups[0] = compound;
     for (final entry in entries.where(
       (entry) =>
-          entry.difficult &&
-          entry.pinyin.isNotEmpty &&
-          !entry.pinyin.any(PinyinUtils.isCompoundReading),
+          (entry.difficult || entry.radical.isEmpty) &&
+          !_recognizableRadicalVariants.contains(entry.radical) &&
+          entry.character != entry.radical,
     )) {
       groups.putIfAbsent(entry.strokeCount, () => []).add(entry);
     }
@@ -198,6 +193,18 @@ class IndexCatalog {
     return Map.fromEntries(
         groups.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
   }
+
+  // The imported `difficult` flag also includes every nonstandard radical.
+  // These components are plainly visible in their characters, so they do not
+  // make a character difficult to locate by radical.
+  static const _recognizableRadicalVariants = {
+    '釒',
+    '飠',
+    '牜',
+    '青',
+    '耂',
+    '幺',
+  };
 
   static List<String> _sortReadings(Set<String> values) => values.toList()
     ..sort((a, b) {

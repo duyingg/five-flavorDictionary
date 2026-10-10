@@ -55,7 +55,7 @@ void main() {
         PreferencesKeys.bundledSkinsSeeded: true,
       }));
 
-  testWidgets('造句只使用今日六个一级字并可批量删除便签', (tester) async {
+  testWidgets('造句只使用今日六个汉字并可批量删除', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -65,6 +65,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(find.text('造句'), findsOneWidget);
+    expect(find.text('从今日 6 个汉字中选择一个来造句'), findsOneWidget);
 
     for (final character in ['学', '习', '天', '地', '人', '和']) {
       expect(find.text(character), findsOneWidget);
@@ -75,7 +77,7 @@ void main() {
       find.byKey(const Key('sentence-editor')),
       '我们每天认真学习。',
     );
-    await tester.tap(find.text('保存便签'));
+    await tester.tap(find.text('保存造句'));
     await tester.pumpAndSettle();
     expect(find.text('我们每天认真学习。'), findsOneWidget);
     expect(
@@ -87,7 +89,7 @@ void main() {
       find.byKey(const Key('sentence-editor')),
       '学习使人进步。',
     );
-    await tester.tap(find.text('保存便签'));
+    await tester.tap(find.text('保存造句'));
     await tester.pumpAndSettle();
     expect(find.text('学习使人进步。'), findsOneWidget);
 

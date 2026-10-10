@@ -61,8 +61,8 @@ void main() {
       GoRoute(
         path: AppRoutes.settingsData,
         builder: (_, __) => Scaffold(
-          appBar: AppBar(title: const Text('数据管理')),
-          body: const Text('导入诗词数据'),
+          appBar: AppBar(title: const Text('更改诗词库')),
+          body: const Text('可切换诗词库'),
         ),
       ),
     ]);
@@ -110,8 +110,8 @@ void main() {
 
     await tester.tap(find.text('没有找到目标诗?'));
     await tester.pumpAndSettle();
-    expect(find.text('数据管理'), findsOneWidget);
-    expect(find.text('导入诗词数据'), findsOneWidget);
+    expect(find.text('更改诗词库'), findsOneWidget);
+    expect(find.text('可切换诗词库'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
   });
@@ -173,5 +173,48 @@ void main() {
     );
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('逐行注释翻译紧跟对应诗句', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(900, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const item = PoetryItem(
+      id: 'poetry-parallel',
+      title: '测试诗',
+      author: '作者',
+      dynasty: '唐',
+      form: '诗',
+      style: '',
+      theme: '',
+      emotion: '',
+      content: '第一句。\n第二句。',
+      notes: '第一注。\n第二注。',
+      translation: '第一译。\n第二译。',
+      shuffleKey: 1,
+      sequence: 1,
+      searchText: '',
+      sourceId: 'test',
+    );
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        poetryRepositoryProvider
+            .overrideWithValue(const _SinglePoetryRepository(item)),
+        hanScriptConverterProvider.overrideWith(
+          (ref) => Future.value(const HanScriptConverter.empty()),
+        ),
+      ],
+      child: const MaterialApp(home: PoetryDetailPage(id: 'poetry-parallel')),
+    ));
+    await pumpUntilFound(tester, find.textContaining('第一句'));
+    await tester.tap(find.text('注释'));
+    await tester.pump();
+    await tester.tap(find.text('翻译'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('第一注'), findsOneWidget);
+    expect(find.textContaining('第一译'), findsOneWidget);
+    expect(find.textContaining('第二注'), findsOneWidget);
+    expect(find.textContaining('第二译'), findsOneWidget);
+    expect(tester.getTopLeft(find.textContaining('第一译')).dy,
+        lessThan(tester.getTopLeft(find.textContaining('第二句')).dy));
   });
 }

@@ -9,7 +9,7 @@ extension DailyContentTypeLabel on DailyContentType {
       };
 }
 
-enum AppFontScale { small, standard, large, extraLarge }
+enum AppFontScale { small, standard, large, extraLarge, veryLarge }
 
 enum CharacterScript { simplified, traditional, common }
 
@@ -199,13 +199,15 @@ extension AppFontScaleValue on AppFontScale {
         AppFontScale.small => '小',
         AppFontScale.standard => '标准',
         AppFontScale.large => '大',
-        AppFontScale.extraLarge => '特大',
+        AppFontScale.extraLarge => '较大',
+        AppFontScale.veryLarge => '特大',
       };
   double get factor => switch (this) {
         AppFontScale.small => .9,
         AppFontScale.standard => 1,
         AppFontScale.large => 1.15,
         AppFontScale.extraLarge => 1.3,
+        AppFontScale.veryLarge => 1.5,
       };
 }
 
@@ -215,6 +217,7 @@ class AppSettings {
     this.fontScale = AppFontScale.standard,
     this.keepSearchHistory = true,
     this.autofocusAfterClear = true,
+    this.leftHanded = false,
     this.reduceDecoration = false,
     this.fullPoetryLibrary = false,
     this.globalHanLookupEnabled = true,
@@ -237,6 +240,7 @@ class AppSettings {
   final AppFontScale fontScale;
   final bool keepSearchHistory;
   final bool autofocusAfterClear;
+  final bool leftHanded;
   final bool reduceDecoration;
   final bool fullPoetryLibrary;
   final bool globalHanLookupEnabled;
@@ -260,6 +264,7 @@ class AppSettings {
     AppFontScale? fontScale,
     bool? keepSearchHistory,
     bool? autofocusAfterClear,
+    bool? leftHanded,
     bool? reduceDecoration,
     bool? fullPoetryLibrary,
     bool? globalHanLookupEnabled,
@@ -284,6 +289,7 @@ class AppSettings {
         fontScale: fontScale ?? this.fontScale,
         keepSearchHistory: keepSearchHistory ?? this.keepSearchHistory,
         autofocusAfterClear: autofocusAfterClear ?? this.autofocusAfterClear,
+        leftHanded: leftHanded ?? this.leftHanded,
         reduceDecoration: reduceDecoration ?? this.reduceDecoration,
         fullPoetryLibrary: fullPoetryLibrary ?? this.fullPoetryLibrary,
         globalHanLookupEnabled:

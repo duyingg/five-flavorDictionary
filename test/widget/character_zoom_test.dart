@@ -98,6 +98,30 @@ void main() {
     expect(find.byKey(const Key('character-primary-visual')), findsOneWidget);
   });
 
+  testWidgets('关闭字形与笔顺后隐藏放大字形区域', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      PreferencesKeys.bundledSkinsSeeded: true,
+      PreferencesKeys.showStrokeOrder: false,
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: CharacterDetailContent(
+              entry: _entry(strokeOrderAsset: 'test.svg'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(StrokeOrderView), findsNothing);
+    expect(find.byKey(const Key('static-character-display')), findsNothing);
+    expect(find.text('字形与笔顺'), findsNothing);
+    expect(find.byKey(const Key('character-primary-visual')), findsOneWidget);
+  });
+
   testWidgets('词条设置可隐藏拼音注音五笔部首笔画等信息', (tester) async {
     SharedPreferences.setMockInitialValues({
       PreferencesKeys.bundledSkinsSeeded: true,

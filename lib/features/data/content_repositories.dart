@@ -117,54 +117,30 @@ abstract interface class PoetryRepository {
 }
 
 class AssetPoetryRepository implements PoetryRepository {
-  PoetryCatalog? _cache;
-  bool? _cachedFullLibrary;
-  Future<PoetryCatalog>? _loading;
-  bool? _loadingFullLibrary;
-  var _loadRevision = 0;
+  Future<PoetryCatalog>? _fullLoading;
+  Future<PoetryCatalog>? _defaultLoading;
 
-  Future<PoetryCatalog> _load(bool fullLibrary) async {
-    final cached = _cache;
-    if (_cachedFullLibrary == fullLibrary && cached != null) {
-      return cached;
-    }
-    if (_loadingFullLibrary == fullLibrary) {
-      final pending = _loading;
-      if (pending != null) return pending;
-    }
-    final revision = ++_loadRevision;
-    final pending = _read(fullLibrary);
-    _loadingFullLibrary = fullLibrary;
-    _loading = pending;
-    try {
-      final catalog = await pending;
-      if (revision == _loadRevision) {
-        _cachedFullLibrary = fullLibrary;
-        _cache = catalog;
-      }
-      return catalog;
-    } finally {
-      if (identical(_loading, pending)) {
-        _loading = null;
-        _loadingFullLibrary = null;
-      }
-    }
-  }
+  Future<PoetryCatalog> _full() => _fullLoading ??= _readFull();
 
-  Future<PoetryCatalog> _read(bool fullLibrary) async {
-    final asset = fullLibrary
-        ? 'assets/data/poetry_items_full.wvp'
-        : 'assets/data/poetry_items.wvp';
-    final bytes = await rootBundle.load(asset);
-    return PoetryBinaryCodec.open(bytes);
+  Future<PoetryCatalog> _readFull() async => PoetryBinaryCodec.open(
+        await rootBundle.load('assets/data/poetry_items_full.wvp'),
+      );
+
+  Future<PoetryCatalog> _default() => _defaultLoading ??= _readDefault();
+
+  Future<PoetryCatalog> _readDefault() async {
+    final full = await _full();
+    final index =
+        await rootBundle.load('assets/data/poetry_standard_index.wvi');
+    return full.subset(index);
   }
 
   @override
   Future<PoetryCatalog> catalog({bool fullLibrary = false}) =>
-      _load(fullLibrary);
+      fullLibrary ? _full() : _default();
 
   @override
   Future<PoetryItem?> getById(String id, {bool fullLibrary = false}) async {
-    return (await _load(fullLibrary)).findById(id);
+    return (await catalog(fullLibrary: fullLibrary)).findById(id);
   }
 }

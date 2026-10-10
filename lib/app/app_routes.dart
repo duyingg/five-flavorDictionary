@@ -20,6 +20,10 @@ abstract final class AppRoutes {
   static const learningGuess = '/learning/guess';
   static const learningSentence = '/learning/sentence';
   static const learningPolyphonic = '/learning/polyphonic';
+  static const learningPrimarySchoolCharacters =
+      '/learning/primary-school-characters';
+  static const learningClassicalDictionary = '/learning/classical-dictionary';
+  static const learningWordStudy = '/learning/words';
 
   static const settingsGeneral = '/settings/general';
   static const settingsSkin = '/settings/skin';

@@ -11,6 +11,7 @@ abstract final class PreferencesKeys {
   static const fontScale = 'v1.settings.fontScale';
   static const keepHistory = 'v1.settings.keepSearchHistory';
   static const autofocus = 'v1.settings.autofocusAfterClear';
+  static const leftHanded = 'v1.settings.leftHanded';
   static const reduceDecoration = 'v1.settings.reduceDecoration';
   static const fullPoetryLibrary = 'v1.settings.fullPoetryLibrary';
   static const globalHanLookup = 'v1.settings.globalHanLookup';
@@ -89,6 +90,7 @@ class PreferencesStore {
           .byName(prefs.getString(PreferencesKeys.fontScale) ?? 'standard'),
       keepSearchHistory: prefs.getBool(PreferencesKeys.keepHistory) ?? true,
       autofocusAfterClear: prefs.getBool(PreferencesKeys.autofocus) ?? true,
+      leftHanded: prefs.getBool(PreferencesKeys.leftHanded) ?? false,
       reduceDecoration:
           prefs.getBool(PreferencesKeys.reduceDecoration) ?? false,
       fullPoetryLibrary:
@@ -129,6 +131,7 @@ class PreferencesStore {
       prefs.setString(PreferencesKeys.fontScale, value.fontScale.name),
       prefs.setBool(PreferencesKeys.keepHistory, value.keepSearchHistory),
       prefs.setBool(PreferencesKeys.autofocus, value.autofocusAfterClear),
+      prefs.setBool(PreferencesKeys.leftHanded, value.leftHanded),
       prefs.setBool(PreferencesKeys.reduceDecoration, value.reduceDecoration),
       prefs.setBool(PreferencesKeys.fullPoetryLibrary, value.fullPoetryLibrary),
       prefs.setBool(

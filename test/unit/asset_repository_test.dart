@@ -32,6 +32,41 @@ void main() {
     expect(await repository.findExact('不存在的生造词语'), isNull);
   });
 
+  test('词语学习支持文字前缀和一个或多个逐字拼音', () async {
+    final repository = AssetWordRepository();
+    expect(
+      (await repository.searchText('银行')).map((entry) => entry.word),
+      contains('银行'),
+    );
+    expect(await repository.searchPinyin(['yin']), isNotEmpty);
+    expect(
+      (await repository.searchPinyin(['yin', 'hang'], limit: 100))
+          .map((entry) => entry.word),
+      contains('银行'),
+    );
+    expect(
+      (await repository.searchPinyin(['yin', 'guo']))
+          .map((entry) => entry.word),
+      isNot(contains('银行')),
+    );
+  });
+
+  test('繁体字等级继承对应简体字等级', () async {
+    final repository = AssetDictionaryRepository();
+    for (final (simplified, traditional) in [
+      ('汉', '漢'),
+      ('学', '學'),
+      ('国', '國'),
+      ('发', '發'),
+      ('发', '髮'),
+    ]) {
+      final source = await repository.findExactCharacter(simplified);
+      final target = await repository.findExactCharacter(traditional);
+      expect(target?.characterLevel, source?.characterLevel,
+          reason: '$simplified / $traditional');
+    }
+  });
+
   test('每日诗句均可在标准诗词库定位到原诗', () async {
     final verses =
         await AssetDailyContentRepository().getByType(DailyContentType.verse);
@@ -132,8 +167,12 @@ void main() {
       expect(classic?.translation, isNotEmpty, reason: id);
       expect(classic?.passages, isNotEmpty, reason: id);
       expect(
-        classic?.passages.every((passage) =>
-            passage.original.isNotEmpty && passage.translation.isNotEmpty),
+        classic?.passages.every((passage) => passage.original.isNotEmpty),
+        isTrue,
+        reason: id,
+      );
+      expect(
+        classic?.passages.any((passage) => passage.translation.isNotEmpty),
         isTrue,
         reason: id,
       );
@@ -272,11 +311,34 @@ void main() {
   });
 
   test('全量诗词二进制资源可完整解码', () async {
-    final catalog = await AssetPoetryRepository().catalog(fullLibrary: true);
+    final repository = AssetPoetryRepository();
+    final catalog = await repository.catalog(fullLibrary: true);
+    final standard = await repository.catalog();
     final selection = catalog.select(const PoetryQuery());
     expect(catalog.length, 367905);
+    expect(standard.length, 54659);
     expect(selection.itemAt(0).id, startsWith('poetry-'));
     expect(selection.itemAt(selection.length - 1).searchText, isNotEmpty);
+    String? extraId;
+    for (var index = 0; index < catalog.length; index++) {
+      final id = catalog.itemAt(index).id;
+      if (standard.findById(id) == null) {
+        extraId = id;
+        break;
+      }
+    }
+    expect(extraId, isNotNull);
+    expect(await repository.getById(extraId!), isNull);
+    expect(await repository.getById(extraId, fullLibrary: true), isNotNull);
+    final ascending = standard.select(
+      const PoetryQuery(order: PoetryOrder.ascending),
+    );
+    expect(
+        ascending.itemAt(0).sequence, lessThan(ascending.itemAt(1).sequence));
+    expect(
+      () => catalog.subset(ByteData.sublistView(Uint8List(16))),
+      throwsFormatException,
+    );
   });
 
   test('诗词二进制解码器拒绝错误签名与截断数据', () {

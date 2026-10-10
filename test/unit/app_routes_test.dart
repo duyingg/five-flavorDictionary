@@ -19,5 +19,6 @@ void main() {
     expect(AppRoutes.solarTermPattern, '/solar-term/:name');
     expect(AppRoutes.poetryAuthorPattern, '/poetry-author/:dynasty/:author');
     expect(AppRoutes.settingsGeneral, '/settings/general');
+    expect(AppRoutes.learningWordStudy, '/learning/words');
   });
 }

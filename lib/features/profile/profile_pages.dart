@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_routes.dart';
 import '../../app/providers.dart';
+import '../../core/app_version.dart';
 import '../../core/design/app_theme.dart';
 import '../../core/design/bundled_skin_loader.dart';
 import '../../core/design/skin_package_loader.dart';
@@ -26,21 +27,8 @@ class ProfilePage extends ConsumerWidget {
       'profile.settings'
     ),
     ('皮肤设置', Icons.palette_outlined, AppRoutes.settingsSkin, 'profile.skin'),
-    (
-      '每日内容偏好',
-      Icons.calendar_month_outlined,
-      AppRoutes.settingsDaily,
-      'profile.daily'
-    ),
     ('查询历史', Icons.history, AppRoutes.history, 'profile.history'),
-    ('数据管理', Icons.storage_outlined, AppRoutes.settingsData, 'profile.data'),
-    ('关于我们', Icons.info_outline, AppRoutes.informationAbout, 'profile.about'),
-    (
-      '隐私政策',
-      Icons.privacy_tip_outlined,
-      AppRoutes.informationPrivacy,
-      'profile.privacy'
-    ),
+    ('更改诗词库', Icons.storage_outlined, AppRoutes.settingsData, 'profile.data'),
     ('使用帮助', Icons.help_outline, AppRoutes.informationHelp, 'profile.help'),
     (
       '反馈与建议',
@@ -48,6 +36,7 @@ class ProfilePage extends ConsumerWidget {
       AppRoutes.informationFeedback,
       'profile.feedback'
     ),
+    ('关于我们', Icons.info_outline, AppRoutes.informationAbout, 'profile.about'),
   ];
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -66,17 +55,23 @@ class ProfilePage extends ConsumerWidget {
                 Card(
                   child: Column(children: [
                     for (var index = 0; index < items.length; index++) ...[
-                      ListTile(
-                        leading: SkinIcon(
-                          items[index].$4,
-                          fallback: spec.icon(items[index].$4, items[index].$2),
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      if (items[index].$3 != AppRoutes.history ||
+                          settings.keepSearchHistory)
+                        ListTile(
+                          leading: SkinIcon(
+                            items[index].$4,
+                            fallback:
+                                spec.icon(items[index].$4, items[index].$2),
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                          title: Text(items[index].$1),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => context.push(items[index].$3),
                         ),
-                        title: Text(items[index].$1),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => context.push(items[index].$3),
-                      ),
-                      if (index != items.length - 1)
+                      if (index != items.length - 1 &&
+                          (items[index].$3 != AppRoutes.history ||
+                              settings.keepSearchHistory))
                         const Divider(height: 1, indent: 56),
                     ],
                   ]),
@@ -95,7 +90,7 @@ class ProfilePage extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '版本 1.0.0',
+                '版本 $appVersion',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant),
@@ -114,7 +109,7 @@ class SettingsPage extends ConsumerWidget {
 
   String get title => switch (kind) {
         'daily' => '每日内容偏好',
-        'data' => '数据管理',
+        'data' => '更改诗词库',
         'skin' => '皮肤设置',
         _ => '设置'
       };
@@ -271,7 +266,7 @@ class SettingsPage extends ConsumerWidget {
             ),
             const Divider(height: 1),
             SwitchListTile(
-              title: const Text('笔顺'),
+              title: const Text('字形与笔顺'),
               value: settings.showStrokeOrder,
               onChanged: (value) => controller.setSettings(
                 (current) => current.copyWith(showStrokeOrder: value),
@@ -295,7 +290,9 @@ class SettingsPage extends ConsumerWidget {
             child: Column(children: [
               for (final scale in AppFontScale.values)
                 RadioListTile<AppFontScale>(
-                  title: Text('字号 · ${scale.label}'),
+                  controlAffinity: ListTileControlAffinity.trailing,
+                  title: Text(
+                      '字号 · ${scale.label} · ${(scale.factor * 100).round()}%'),
                   value: scale,
                 ),
             ]),
@@ -307,19 +304,18 @@ class SettingsPage extends ConsumerWidget {
               Text('字号预览 · ${(settings.fontScale.factor * 100).round()}%',
                   style: TextStyle(color: muted, fontSize: 12)),
               const SizedBox(height: 10),
-              Text(
+              const Text(
                 '汉字之美，在形、音、义。',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 20 * settings.fontScale.factor,
+                  fontSize: 20,
                   height: 1.5,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(height: 4),
-              Text('春风又绿江南岸',
-                  style: TextStyle(
-                      fontSize: 15 * settings.fontScale.factor, height: 1.5)),
+              const Text('春风又绿江南岸',
+                  style: TextStyle(fontSize: 15, height: 1.5)),
             ]),
           ),
         ]),
@@ -327,33 +323,58 @@ class SettingsPage extends ConsumerWidget {
     ];
     if (kind == 'data') {
       return [
+        Text('当前诗词库', style: TextStyle(color: muted)),
+        const SizedBox(height: 8),
         Card(
-            child: Column(children: [
-          ListTile(
-              title: const Text('清除收藏'),
-              subtitle: const Text('不会影响其他设置'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _clearFavorites(context, ref)),
-          const Divider(height: 1),
-          ListTile(
-              title: const Text('清除查询历史'),
-              subtitle: const Text('最多保留最近 100 条'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _clearHistory(context, ref)),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.library_books_outlined),
-            title: const Text('导入诗词数据'),
-            subtitle: Text(settings.fullPoetryLibrary
-                ? '当前：全部唐诗、宋诗词及其他作品'
-                : '当前：唐诗 2 万、宋诗词 2 万及其他全部作品'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _selectPoetryLibrary(context, ref, settings),
-          ),
-        ])),
+            child: ListTile(
+          leading: const Icon(Icons.check_circle_outline),
+          title: Text(settings.fullPoetryLibrary ? '全部唐诗宋词' : '标准诗词库'),
+        )),
+        const SizedBox(height: 16),
+        Text('可切换诗词库', style: TextStyle(color: muted)),
+        const SizedBox(height: 8),
+        Card(
+            child: RadioGroup<bool>(
+          groupValue: settings.fullPoetryLibrary,
+          onChanged: (value) {
+            if (value != null) {
+              controller
+                  .setSettings((s) => s.copyWith(fullPoetryLibrary: value));
+            }
+          },
+          child: const Column(children: [
+            RadioListTile<bool>(
+              value: false,
+              title: Text('标准诗词库'),
+              subtitle: Text('唐诗 2 万、宋诗词 2 万，其他作品全部收录'),
+            ),
+            RadioListTile<bool>(
+              value: true,
+              title: Text('全部唐诗宋词'),
+              subtitle: Text('收录仓库内全部唐诗、宋诗与宋词'),
+            ),
+          ]),
+        )),
       ];
     }
     return [
+      Text('每日内容偏好', style: TextStyle(color: muted)),
+      const SizedBox(height: 10),
+      Card(
+          child: RadioGroup<DailyContentType>(
+        groupValue: settings.dailyContentType,
+        onChanged: (value) {
+          if (value != null) {
+            controller.setSettings((s) => s.copyWith(dailyContentType: value));
+          }
+        },
+        child: Column(children: [
+          for (final type in DailyContentType.values)
+            RadioListTile<DailyContentType>(
+                title: Text(type.label), value: type),
+        ]),
+      )),
+      const SizedBox(height: 18),
       ...displayContent,
       const SizedBox(height: 16),
       _SidebarWidthSetting(
@@ -381,6 +402,13 @@ class SettingsPage extends ConsumerWidget {
                 .setSettings((s) => s.copyWith(reduceDecoration: value))),
         const Divider(height: 1),
         SwitchListTile(
+            title: const Text('左手模式'),
+            subtitle: const Text('将页面布局左右镜像，侧边栏和操作按钮移至另一侧'),
+            value: settings.leftHanded,
+            onChanged: (value) =>
+                controller.setSettings((s) => s.copyWith(leftHanded: value))),
+        const Divider(height: 1),
+        SwitchListTile(
             title: const Text('保留查询历史'),
             value: settings.keepSearchHistory,
             onChanged: (value) => controller
@@ -388,9 +416,25 @@ class SettingsPage extends ConsumerWidget {
         const Divider(height: 1),
         SwitchListTile(
             title: const Text('清空后自动聚焦'),
+            subtitle: const Text('清空首页搜索框后自动打开键盘，方便立即输入下一次查询'),
             value: settings.autofocusAfterClear,
             onChanged: (value) => controller
                 .setSettings((s) => s.copyWith(autofocusAfterClear: value))),
+      ])),
+      const SizedBox(height: 16),
+      Card(
+          child: Column(children: [
+        ListTile(
+          title: const Text('清除收藏'),
+          onTap: () => _clearFavorites(context, ref),
+        ),
+        if (settings.keepSearchHistory) ...[
+          const Divider(height: 1),
+          ListTile(
+            title: const Text('清除查询历史'),
+            onTap: () => _clearHistory(context, ref),
+          ),
+        ],
       ])),
       const SizedBox(height: 20),
       OutlinedButton(
@@ -441,50 +485,6 @@ class SettingsPage extends ConsumerWidget {
     if (context.mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('查询历史已清空')));
-    }
-  }
-
-  Future<void> _selectPoetryLibrary(
-    BuildContext context,
-    WidgetRef ref,
-    AppSettings settings,
-  ) async {
-    final selected = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: const Text('选择诗词导入范围'),
-        children: [
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.library_books_outlined),
-              title: Text('标准诗词库'),
-              subtitle: Text('唐诗 2 万、宋诗词 2 万，其他作品全部导入'),
-            ),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.all_inbox_outlined),
-              title: Text('全部唐诗宋词'),
-              subtitle: Text('导入仓库内全部唐诗、宋诗与宋词；首次打开需要更多时间'),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (selected == null || selected == settings.fullPoetryLibrary) return;
-    await ref.read(settingsControllerProvider.notifier).setSettings(
-          (value) => value.copyWith(fullPoetryLibrary: selected),
-        );
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(selected ? '已切换为全部唐诗宋词' : '已切换为标准诗词库'),
-        ),
-      );
     }
   }
 }
@@ -631,7 +631,7 @@ class _SkinSettingsPanelState extends ConsumerState<_SkinSettingsPanel> {
       if (settings.importedSkin != null &&
           !BundledSkinLoader.names.contains(settings.importedSkin!.name))
         Align(
-          alignment: Alignment.centerRight,
+          alignment: AlignmentDirectional.centerEnd,
           child: TextButton.icon(
             onPressed: _removeImportedSkin,
             icon: const Icon(Icons.delete_outline, size: 18),
@@ -774,7 +774,7 @@ class _ColorDot extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         width: 18,
         height: 18,
-        margin: const EdgeInsets.only(left: 4),
+        margin: const EdgeInsetsDirectional.only(start: 4),
         decoration: BoxDecoration(
           color: color,
           shape: BoxShape.circle,
@@ -785,41 +785,96 @@ class _ColorDot extends StatelessWidget {
 
 class SearchHistoryPage extends ConsumerWidget {
   const SearchHistoryPage({super.key});
+
+  Future<void> _clearHistory(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('清空全部查询历史？'),
+        content: const Text('清空后无法恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('清空'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await ref.read(searchHistoryControllerProvider.notifier).clear();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('查询历史已清空')),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('清空失败，请重试')),
+        );
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Scaffold(
-        appBar: AppBar(title: const Text('查询历史')),
-        body: ref.watch(searchHistoryControllerProvider).when(
-              data: (values) => values.isEmpty
-                  ? const EmptyState(
-                      title: '暂无查询历史',
-                      message: '从首页查询汉字或词语后会记录在这里',
-                    )
-                  : ResponsiveContent(
-                      maxWidth: 700,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(20),
-                        itemCount: values.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, index) => ListTile(
-                          leading: CircleAvatar(
-                            child: Text(values[index].characters.first),
-                          ),
-                          title: Text(values[index]),
-                          subtitle: Text('第 ${index + 1} 条 · 最近优先'),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () => context.push(
-                            values[index].characters.length == 1
-                                ? AppRoutes.character(values[index])
-                                : AppRoutes.word(values[index]),
-                          ),
-                        ),
-                      ),
-                    ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) =>
-                  const EmptyState(title: '读取失败', message: '无法读取查询历史'),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final history = ref.watch(searchHistoryControllerProvider);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('查询历史'),
+        actions: [
+          if (history.valueOrNull?.isNotEmpty ?? false)
+            Tooltip(
+              message: '清空全部查询历史',
+              child: TextButton.icon(
+                onPressed: () => _clearHistory(context, ref),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                  minimumSize: const Size(88, 48),
+                ),
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('清空'),
+              ),
             ),
-      );
+        ],
+      ),
+      body: history.when(
+        data: (values) => values.isEmpty
+            ? const EmptyState(
+                title: '暂无查询历史',
+                message: '从首页查询汉字或词语后会记录在这里',
+              )
+            : ResponsiveContent(
+                maxWidth: 700,
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: values.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) => ListTile(
+                    leading: CircleAvatar(
+                      child: Text(values[index].characters.first),
+                    ),
+                    title: Text(values[index]),
+                    subtitle: index == 0 ? const Text('刚刚查询过') : null,
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(
+                      values[index].characters.length == 1
+                          ? AppRoutes.character(values[index])
+                          : AppRoutes.word(values[index]),
+                    ),
+                  ),
+                ),
+              ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => const EmptyState(title: '读取失败', message: '无法读取查询历史'),
+      ),
+    );
+  }
 }
 
 class InformationPage extends StatefulWidget {
@@ -831,12 +886,22 @@ class InformationPage extends StatefulWidget {
 
 class _InformationPageState extends State<InformationPage> {
   static const feedbackUrl = 'https://v.wjx.cn/vm/wk2BGhD.aspx#';
+  static const feedbackGroup = '334843809';
 
   Future<void> _copyFeedbackUrl() async {
     await Clipboard.setData(const ClipboardData(text: feedbackUrl));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('问卷链接已复制')),
+      );
+    }
+  }
+
+  Future<void> _copyFeedbackGroup() async {
+    await Clipboard.setData(const ClipboardData(text: feedbackGroup));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('反馈交流群号已复制')),
       );
     }
   }
@@ -886,51 +951,61 @@ class _InformationPageState extends State<InformationPage> {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 16),
-              const Text('一款专注于汉字查询、学习与传统文化阅读的离线应用。无账号、无广告、无内购、无会员。',
+              const Text('一款集汉字与词语查询、学习训练、诗词和传统文化阅读于一体的离线应用。',
                   textAlign: TextAlign.center, style: TextStyle(height: 1.7)),
               const SizedBox(height: 18),
               const Card(
                 child: Padding(
                   padding: EdgeInsets.all(18),
                   child: Column(children: [
-                    _AboutRow('产品定位', '汉字工具、学习训练与传统文化阅读'),
+                    _AboutRow('主要功能', '汉字词语查询、学习训练、诗词与古籍阅读'),
                     Divider(),
-                    _AboutRow('当前规模', '21,056 个汉字；默认 51,394 首完整诗词'),
+                    _AboutRow('学习内容', '今日汉字、小学语文生字、多音字与造句'),
                     Divider(),
-                    _AboutRow('隐私', '查询、收藏、历史与偏好仅保存在本机'),
+                    _AboutRow('使用方式', '核心功能离线可用，无需注册账号'),
                     Divider(),
                     _AboutRow('商业模式', '无广告、无内购、无会员'),
                     Divider(),
-                    _AboutRow('版本', '1.0.0'),
+                    _AboutRow('当前版本', appVersion),
                   ]),
                 ),
               ),
               const SizedBox(height: 18),
-              Text(
-                '字典释义来自 chinese-dictionary，笔顺图形来自 Make Me a Hanzi，诗词来自 chinese-poetry。各资源遵循其原始许可证，完整许可文件随项目保留。应用采用 Flutter 构建，可运行于 Web、Android 与 iOS。',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  height: 1.6,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 13,
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.privacy_tip_outlined),
+                  title: const Text('隐私政策'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push(AppRoutes.informationPrivacy),
                 ),
               ),
             ] else if (widget.kind == 'help') ...[
-              const _HelpTile('如何查询汉字？', '在首页搜索框输入且仅输入一个汉字，然后点击搜索。'),
+              const _HelpTile(
+                  '如何查询汉字或词语？', '在首页搜索框输入一个或多个汉字。输入单字进入汉字详情，输入多字进入词语查询。'),
               const _HelpTile('如何按条件查字？', '使用首页的拼音、部首、笔画、难检字或韵脚入口。'),
+              const _HelpTile(
+                  '如何调整查询页内容？', '进入“我的 → 设置 → 汉字查询偏好”选择拼音、注音、五笔、笔画等需要显示的项目。'),
               const _HelpTile('简繁和字级为何会自动保持？',
                   '索引页顶部的简繁按钮与最高字级滑块属于全局偏好。修改后会应用到所有索引页和学习抽题，并在下次启动时恢复。'),
               const _HelpTile('查询历史在哪里？',
-                  '首页会显示最近查询；“我的 → 查询历史”可查看最多 100 条记录。“数据管理”可清空，设置中也可关闭记录。'),
+                  '首页会显示最近查询；“我的 → 查询历史”可查看最多 100 条记录，并可在页面顶部清空。设置中也可关闭记录。'),
               const _HelpTile(
                   '如何学习多音字？', '进入“学习 → 多音字学习”。闯关按词组判断指定读音，无尽模式会随机出题并逐步扩展题库。'),
-              const _HelpTile('如何阅读诗词？',
-                  '文化页选择“诗词”，可搜索作者、标题、正文并筛选。读音、注释和翻译按钮只展示源数据真实提供的内容。'),
+              const _HelpTile(
+                  '小学语文生字在哪里？', '进入“学习 → 小学语文生字”，可按一年级至六年级和上下册切换，并按汉字或拼音搜索。'),
+              const _HelpTile(
+                  '造句内容会保存吗？', '会。造句以便签形式保存在本机，记录创作时间，并支持进入批量管理后删除。'),
+              const _HelpTile(
+                  '如何阅读诗词？', '文化页选择“诗词”，可搜索作者、标题、正文并筛选。读音、注释和翻译有内容时即可开启。'),
+              const _HelpTile(
+                  '如何在文化内容中快捷查字？', '点击文化页和详情正文中的汉字即可打开单字详情；长按仍可选择和复制文字。'),
               const _HelpTile('如何切换或寻找皮肤？',
                   '进入“我的 → 皮肤设置”选择内置皮肤，或导入本地 JSON 皮肤；也可跳转 GitHub 搜索社区资源。第三方皮肤需先核对许可证。'),
-              const _HelpTile('如何导入全部唐诗宋词？',
-                  '进入“我的 → 数据管理 → 导入诗词数据”，选择全部唐诗宋词。全量库较大，首次加载会更久。'),
-              const _HelpTile('每日内容怎么切换？', '进入“我的 → 每日内容偏好”，可选文字、词语、成语或诗句。'),
+              const _HelpTile(
+                  '如何更改诗词库？', '进入“我的 → 更改诗词库”，查看当前诗词库并切换。全量库较大，首次加载会更久。'),
+              const _HelpTile('每日内容怎么切换？',
+                  '点击首页“每日内容”标题，或进入“我的 → 设置 → 每日内容偏好”，可选汉字、词语、成语或诗句。'),
+              const _HelpTile('如何反馈问题？', '进入“我的 → 反馈与建议”，可填写反馈问卷或复制反馈交流群号。'),
             ] else if (widget.kind == 'privacy') ...[
               Icon(Icons.privacy_tip_outlined,
                   size: 68, color: Theme.of(context).colorScheme.primary),
@@ -969,6 +1044,23 @@ class _InformationPageState extends State<InformationPage> {
                 textAlign: TextAlign.center,
               ),
             ] else ...[
+              Icon(Icons.forum_outlined,
+                  size: 64, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(height: 14),
+              Text('反馈与交流',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 16),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.groups_outlined),
+                  title: const Text('反馈交流群'),
+                  subtitle: const SelectableText(feedbackGroup),
+                  trailing: const Icon(Icons.copy),
+                  onTap: _copyFeedbackGroup,
+                ),
+              ),
+              const SizedBox(height: 20),
               const Text(
                 '扫描二维码填写《五味字典》使用反馈问卷，或复制下方链接在浏览器中打开。',
                 textAlign: TextAlign.center,
@@ -1031,6 +1123,7 @@ class _HelpTile extends StatelessWidget {
       child: ExpansionTile(title: Text(title), children: [
         Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-            child: Align(alignment: Alignment.centerLeft, child: Text(body)))
+            child: Align(
+                alignment: AlignmentDirectional.centerStart, child: Text(body)))
       ]));
 }

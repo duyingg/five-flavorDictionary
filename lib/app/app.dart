@@ -25,26 +25,27 @@ class DictionaryApp extends ConsumerWidget {
     return MaterialApp.router(
       title: '五味字典',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.build(
-        settings.fontScale.factor,
-        settings.skin,
-        settings.importedSkin,
-      ),
+      theme: AppTheme.build(settings.skin, settings.importedSkin),
       routerConfig: appRouter,
-      builder: (context, child) => GlobalHanLookupRegion(
-        enabled: settings.globalHanLookupEnabled,
-        onCharacter: (value) {
-          final path = appRouter.routerDelegate.currentConfiguration.uri.path;
-          if (AppRoutes.isSettingsPath(path)) return;
-          appRouter.push(AppRoutes.character(value));
-        },
-        child: _DataWarmup(
-          child: _PrivacyNoticeGate(
-            child: SkinBackdrop(
-              child: MediaQuery(
-                data: MediaQuery.of(context)
-                    .copyWith(textScaler: TextScaler.noScaling),
-                child: child!,
+      builder: (context, child) => Directionality(
+        textDirection:
+            settings.leftHanded ? TextDirection.rtl : TextDirection.ltr,
+        child: GlobalHanLookupRegion(
+          enabled: settings.globalHanLookupEnabled,
+          onCharacter: (value) {
+            final path = appRouter.routerDelegate.currentConfiguration.uri.path;
+            if (AppRoutes.isSettingsPath(path)) return;
+            appRouter.push(AppRoutes.character(value));
+          },
+          child: _DataWarmup(
+            child: _PrivacyNoticeGate(
+              child: SkinBackdrop(
+                child: MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    textScaler: TextScaler.linear(settings.fontScale.factor),
+                  ),
+                  child: child!,
+                ),
               ),
             ),
           ),

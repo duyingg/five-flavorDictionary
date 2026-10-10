@@ -53,6 +53,7 @@ void main() {
     );
     await store.saveSettings(const AppSettings(
       globalHanLookupEnabled: false,
+      leftHanded: true,
       scriptDisplay: ScriptDisplay.traditional,
       maxCharacterLevel: 2,
       skin: AppSkin.imported,
@@ -70,6 +71,7 @@ void main() {
     ));
     final loaded = await store.loadSettings();
     expect(loaded.globalHanLookupEnabled, isFalse);
+    expect(loaded.leftHanded, isTrue);
     expect(loaded.scriptDisplay, ScriptDisplay.traditional);
     expect(loaded.maxCharacterLevel, 2);
     expect(loaded.skin, AppSkin.imported);

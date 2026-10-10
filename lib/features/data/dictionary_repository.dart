@@ -62,12 +62,28 @@ class AssetDictionaryRepository implements DictionaryRepository {
   }
 }
 
-List<ChineseEntry> _decodeDictionaryEntries(
-        String raw) =>
-    (jsonDecode(raw) as List)
-        .map((item) => ChineseEntry.fromJson(item as Map<String, dynamic>))
-        .where((entry) =>
-            entry.character.isNotEmpty &&
-            entry.sourceId.isNotEmpty &&
-            entry.strokeCount > 0)
-        .toList(growable: false);
+List<ChineseEntry> _decodeDictionaryEntries(String raw) {
+  final rows = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+  final levels = {
+    for (final row in rows)
+      row['character'] as String: row['characterLevel'] as int? ?? 3,
+  };
+  for (final row in rows) {
+    if (row['script'] != 'traditional') continue;
+    final simplified =
+        (row['simplifiedForms'] as List? ?? const []).whereType<String>();
+    final relatedLevels =
+        simplified.map((form) => levels[form]).whereType<int>().toList();
+    if (relatedLevels.isNotEmpty) {
+      row['characterLevel'] = relatedLevels
+          .reduce((current, next) => current < next ? current : next);
+    }
+  }
+  return rows
+      .map(ChineseEntry.fromJson)
+      .where((entry) =>
+          entry.character.isNotEmpty &&
+          entry.sourceId.isNotEmpty &&
+          entry.strokeCount > 0)
+      .toList(growable: false);
+}
