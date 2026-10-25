@@ -14,6 +14,9 @@
 .EXAMPLE
   .\build-apk.ps1 -RequireReleaseSigning
 
+.EXAMPLE
+  .\build-apk.ps1 -ValidateOnly
+
 .NOTES
   Configure a private release keystore before public distribution.
   By default, debug signing is allowed for local installation or registration
@@ -23,10 +26,11 @@
 [CmdletBinding()]
 param(
     [ValidateSet('universal', 'split')]
-    [string]$Mode = 'split',
+    [string]$Mode = 'universal',
     [ValidateSet('build', 'patch', 'minor', 'major')]
     [string]$VersionIncrement = 'build',
     [switch]$RequireReleaseSigning,
+    [switch]$ValidateOnly,
     # Kept for compatibility with the first script revision; no longer needed.
     [switch]$AllowDebugSigning,
     [string]$OutputDirectory = 'release\apk'
@@ -72,6 +76,8 @@ function Invoke-Checked {
 
 function Find-Flutter {
     $candidates = @(
+        'D:\ChatGPT\dependence\flutter\bin\flutter.bat',
+        'D:\ChatGPT\dependence\sdks\flutter\bin\flutter.bat',
         'D:\download\flutter_windows_3.47.0-stable\flutter\bin\flutter.bat',
         (Get-Command flutter -ErrorAction SilentlyContinue |
             Select-Object -ExpandProperty Source -ErrorAction SilentlyContinue)
@@ -272,6 +278,14 @@ try {
     Write-Step 'Checking source and repository safety'
     Assert-NoMergeConflicts
     Assert-NoTrackedSecrets
+
+    if ($ValidateOnly) {
+        $null = Find-Flutter
+        $null = Use-CompatibleJava
+        $currentVersion = Get-PackageVersion
+        Write-Host "Validation passed for $($currentVersion.Major).$($currentVersion.Minor).$($currentVersion.Patch)+$($currentVersion.Build). No APK was built." -ForegroundColor Green
+        return
+    }
 
     $signingPropertiesPath = Join-Path $projectRoot 'android\key.properties'
     $usesDebugSigning = -not (Test-Path -LiteralPath $signingPropertiesPath -PathType Leaf)

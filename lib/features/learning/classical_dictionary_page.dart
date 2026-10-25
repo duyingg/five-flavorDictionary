@@ -213,7 +213,7 @@ class _ClassicalDictionaryPageState
                 const SizedBox(height: 24),
                 Text('典籍用例', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 5),
-                Text('从 30 部本机文献中按原文匹配；译文解释整段语意，具体字义须结合上下文判断。',
+                Text('从 13 部本机文献中按原文匹配；译文解释整段语意，具体字义须结合上下文判断。',
                     style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 const SizedBox(height: 12),

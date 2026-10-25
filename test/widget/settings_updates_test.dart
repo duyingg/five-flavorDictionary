@@ -39,12 +39,18 @@ void main() {
     expect(find.text('每日内容偏好'), findsNothing);
   });
 
-  testWidgets('每日内容偏好和左手模式位于设置中', (tester) async {
+  testWidgets('左手模式位于默认关闭的实验性功能中', (tester) async {
     await tester.pumpWidget(const ProviderScope(
       child: MaterialApp(home: SettingsPage(kind: 'general')),
     ));
     await tester.pumpAndSettle();
     expect(find.text('每日内容偏好'), findsOneWidget);
+    expect(find.text('左手模式'), findsNothing);
+    await tester.scrollUntilVisible(find.text('实验性功能'), 300,
+        scrollable: find.byType(Scrollable).last);
+    await tester.ensureVisible(find.text('实验性功能'));
+    await tester.tap(find.text('实验性功能'));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('左手模式'), 300,
         scrollable: find.byType(Scrollable).last);
     await tester.ensureVisible(find.text('左手模式'));
@@ -55,6 +61,8 @@ void main() {
         (await SharedPreferences.getInstance())
             .getBool(PreferencesKeys.leftHanded),
         isTrue);
+    await tester.scrollUntilVisible(find.textContaining('清空首页搜索框后自动打开键盘'), -300,
+        scrollable: find.byType(Scrollable).last);
     expect(find.textContaining('清空首页搜索框后自动打开键盘'), findsOneWidget);
   });
 }

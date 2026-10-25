@@ -276,6 +276,7 @@ void main() {
     SharedPreferences.setMockInitialValues({
       PreferencesKeys.bundledSkinsSeeded: true,
       PrivacyPolicy.acceptedKey: true,
+      PreferencesKeys.experimentalFeatures: true,
       PreferencesKeys.leftHanded: true,
       PreferencesKeys.dailyType: DailyContentType.word.name,
     });

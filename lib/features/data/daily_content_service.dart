@@ -20,12 +20,14 @@ class DailyContentService {
         '${date.day.toString().padLeft(2, '0')}|$namespace',
       );
 
-  /// Walks every catalog position once before repeating, in a stable
-  /// pseudo-random order that does not allocate or sort the full word library.
+  /// Selects up to ten catalog entries for the day, then cycles within that
+  /// fixed set. Consecutive days walk a stable permutation of the full library
+  /// without allocating or shuffling the full catalog.
   int selectIndex(
       int length, DateTime date, DailyContentType type, int offset) {
     if (length <= 0) throw RangeError.value(length, 'length');
     if (length == 1) return 0;
+    final dailySize = min(10, length);
     final dayNumber = DateTime.utc(date.year, date.month, date.day)
         .difference(DateTime.utc(1970))
         .inDays;
@@ -35,7 +37,9 @@ class DailyContentService {
     while (_greatestCommonDivisor(step, length) != 1) {
       step = step == length - 1 ? 1 : step + 1;
     }
-    return (start + ((dayNumber + offset) % length) * step) % length;
+    final dayStride = length > dailySize ? dailySize : 1;
+    final dailyPosition = (dayNumber * dayStride + offset % dailySize) % length;
+    return (start + dailyPosition * step) % length;
   }
 
   int _greatestCommonDivisor(int left, int right) {

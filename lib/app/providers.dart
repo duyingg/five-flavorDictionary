@@ -110,41 +110,29 @@ final settingsControllerProvider =
 
 class FavoritesController extends AsyncNotifier<Set<String>> {
   final _writes = _WriteQueue();
-  var _revision = 0;
 
   @override
   Future<Set<String>> build() =>
       ref.read(preferencesStoreProvider).loadFavorites();
 
-  Future<void> toggle(String value) async {
-    final previous = state.valueOrNull ?? const <String>{};
-    final next = {...?state.valueOrNull};
-    next.contains(value) ? next.remove(value) : next.add(value);
-    final revision = ++_revision;
-    state = AsyncData(next);
-    try {
-      await _writes.add(
-        () => ref.read(preferencesStoreProvider).saveFavorites(next),
-      );
-    } catch (error, stack) {
-      if (revision == _revision) state = AsyncData(previous);
-      Error.throwWithStackTrace(error, stack);
-    }
-  }
+  Future<void> toggle(String value) => _writes.add(() async {
+        await ref.read(favoritesControllerProvider.future);
+        final next =
+            await ref.read(preferencesStoreProvider).toggleFavorite(value);
+        state = AsyncData(next);
+      });
 
-  Future<void> clear() async {
-    final previous = state.valueOrNull ?? const <String>{};
-    final revision = ++_revision;
-    state = const AsyncData({});
-    try {
-      await _writes.add(
-        () => ref.read(preferencesStoreProvider).saveFavorites({}),
-      );
-    } catch (error, stack) {
-      if (revision == _revision) state = AsyncData(previous);
-      Error.throwWithStackTrace(error, stack);
-    }
-  }
+  Future<void> clear() => _writes.add(() async {
+        await ref.read(favoritesControllerProvider.future);
+        await ref.read(preferencesStoreProvider).saveFavorites({});
+        state = const AsyncData({});
+      });
+
+  Future<void> refreshFromStorage() => _writes.add(() async {
+        await ref.read(favoritesControllerProvider.future);
+        state =
+            AsyncData(await ref.read(preferencesStoreProvider).loadFavorites());
+      });
 }
 
 final favoritesControllerProvider =
@@ -153,46 +141,31 @@ final favoritesControllerProvider =
 
 class SearchHistoryController extends AsyncNotifier<List<String>> {
   final _writes = _WriteQueue();
-  var _revision = 0;
 
   @override
   Future<List<String>> build() =>
       ref.read(preferencesStoreProvider).loadSearchHistory();
 
-  Future<void> add(String character) async {
-    final settings = await ref.read(settingsControllerProvider.future);
-    if (!settings.keepSearchHistory) return;
-    final next = [
-      character,
-      for (final value in state.valueOrNull ?? const <String>[])
-        if (value != character) value,
-    ].take(100).toList(growable: false);
-    final revision = ++_revision;
-    final previous = state.valueOrNull ?? const <String>[];
-    state = AsyncData(next);
-    try {
-      await _writes.add(
-        () => ref.read(preferencesStoreProvider).saveSearchHistory(next),
-      );
-    } catch (error, stack) {
-      if (revision == _revision) state = AsyncData(previous);
-      Error.throwWithStackTrace(error, stack);
-    }
-  }
+  Future<void> add(String character) => _writes.add(() async {
+        await ref.read(searchHistoryControllerProvider.future);
+        final settings = await ref.read(settingsControllerProvider.future);
+        if (!settings.keepSearchHistory) return;
+        state = AsyncData(await ref
+            .read(preferencesStoreProvider)
+            .addSearchHistory(character));
+      });
 
-  Future<void> clear() async {
-    final previous = state.valueOrNull ?? const <String>[];
-    final revision = ++_revision;
-    state = const AsyncData([]);
-    try {
-      await _writes.add(
-        () => ref.read(preferencesStoreProvider).saveSearchHistory(const []),
-      );
-    } catch (error, stack) {
-      if (revision == _revision) state = AsyncData(previous);
-      Error.throwWithStackTrace(error, stack);
-    }
-  }
+  Future<void> clear() => _writes.add(() async {
+        await ref.read(searchHistoryControllerProvider.future);
+        await ref.read(preferencesStoreProvider).saveSearchHistory(const []);
+        state = const AsyncData([]);
+      });
+
+  Future<void> refreshFromStorage() => _writes.add(() async {
+        await ref.read(searchHistoryControllerProvider.future);
+        state = AsyncData(
+            await ref.read(preferencesStoreProvider).loadSearchHistory());
+      });
 }
 
 final searchHistoryControllerProvider =

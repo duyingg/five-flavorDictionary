@@ -67,6 +67,7 @@ app.*.map.json
 /项目文档/
 /UI设计工作区/
 /导出/
+/tool/source_cache/
 /.ppt_build_*/
 /中文字典APP设计作业_5页/
 /中文字典APP设计作业_5页.pptx
@@ -74,3 +75,9 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local exports and artifact validation files
+/output/
+/.codex-finalizer/
+/probe-detail.html
+/probe-page.html

@@ -43,59 +43,72 @@ class _CultureDetailPageState extends ConsumerState<CultureDetailPage> {
       );
 }
 
-class _CultureDetailBody extends ConsumerStatefulWidget {
+class _CultureDetailBody extends ConsumerWidget {
   const _CultureDetailBody({required this.item});
   final CultureItem item;
 
   @override
-  ConsumerState<_CultureDetailBody> createState() => _CultureDetailBodyState();
-}
-
-class _CultureDetailBodyState extends ConsumerState<_CultureDetailBody> {
-  final _scrollController = ScrollController();
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    ref.listen(cultureDisplayModeProvider, (_, __) {
-      restoreScrollProgress(
-        _scrollController,
-        scrollProgress(_scrollController),
-      );
-    });
+  Widget build(BuildContext context, WidgetRef ref) {
     final modes = ref.watch(cultureDisplayModeProvider);
-    final item = widget.item;
+    final settings = ref.watch(settingsControllerProvider).valueOrNull ??
+        const AppSettings();
     if (item.passages.isNotEmpty) {
       return ResponsiveContent(
-        maxWidth: 800,
-        child: _ParallelCulturePassageList(
-          item: item,
-          controller: _scrollController,
-          showPinyin: modes.contains(CultureDisplayMode.reading),
-          showTranslation: modes.contains(CultureDisplayMode.translation),
-          showNotes: modes.contains(CultureDisplayMode.notes),
-        ),
-      );
+          maxWidth: 800,
+          child: _ParallelCulturePassageList(
+              item: item,
+              showPinyin: modes.contains(CultureDisplayMode.reading),
+              showTranslation: modes.contains(CultureDisplayMode.translation)));
     }
+    final converter = ref.watch(hanScriptConverterProvider).valueOrNull;
+    if (converter == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    String display(String text) =>
+        converter.convert(text, settings.scriptDisplay);
+    final special = {
+      'other-surnames',
+      'other-festival',
+      'other-solar',
+      'other-title'
+    }.contains(item.id);
+    final paragraphs = special
+        ? [item.content]
+        : item.content
+            .split(RegExp(r'\n\s*\n'))
+            .where((p) => p.trim().isNotEmpty)
+            .toList();
     return ResponsiveContent(
-      maxWidth: 800,
-      child: ListView(
-          controller: _scrollController,
-          padding: const EdgeInsets.all(24),
-          children: [
-            Text(item.title, style: Theme.of(context).textTheme.headlineMedium),
+        maxWidth: 800,
+        child: _ArticleReader(
+          key: ValueKey(item.id),
+          indentParagraphs: item.category != CultureCategory.other,
+          sourceCount: paragraphs.isEmpty ? 1 : paragraphs.length,
+          sourceTextFor: (index) =>
+              paragraphs.isEmpty ? '' : display(paragraphs[index]),
+          revision: Object.hash(settings.scriptDisplay, settings.fontScale,
+              modes.contains(CultureDisplayMode.reading)),
+          open: modes.contains(CultureDisplayMode.translation),
+          onClose: () => _closeArticleTranslation(ref),
+          showParagraphNumbers: settings.showParagraphNumbers,
+          showAnnotationMarkers: settings.showAnnotationMarkers,
+          notes: display(item.notes),
+          translation: display(item.translation),
+          appreciation: display(item.appreciation),
+          header:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(display(item.title),
+                style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 8),
-            Text(item.subtitle,
+            Text(display(item.subtitle),
                 style: TextStyle(color: Theme.of(context).colorScheme.primary)),
-            const Divider(height: 36),
+            const Divider(height: 24),
+          ]),
+          sourceBuilder: (context, index) =>
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (item.content.trim().isEmpty)
               const SizedBox(
-                  height: 300,
+                  height: 180,
                   child: EmptyState(title: '暂未实装', message: '内容入口已预留，后续补充原文'))
             else if (item.id == 'other-surnames' && item.readingContent != null)
               _SurnameReading(
@@ -107,42 +120,16 @@ class _CultureDetailBodyState extends ConsumerState<_CultureDetailBody> {
               _SolarTerms(content: item.content)
             else if (item.id == 'other-title')
               const AncientTitlesSection()
-            else if (modes.contains(CultureDisplayMode.reading))
-              _PinyinText(text: item.content)
             else
-              Text(_protectLineInitialPunctuation(item.content),
+              _ArticleOriginalText(
+                  text: display(paragraphs[index]),
+                  showPinyin: modes.contains(CultureDisplayMode.reading),
                   style: const TextStyle(height: 1.9, fontSize: 17)),
-            if (item.id.startsWith('school-'))
+            if (item.id.startsWith('school-') &&
+                index == math.max(0, paragraphs.length - 1))
               _SchoolBooksSection(schoolId: item.id),
-            if (modes.contains(CultureDisplayMode.notes) &&
-                item.notes.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              _PoetrySupplement(
-                title: '注释',
-                content: item.notes,
-                missing: '',
-              ),
-            ],
-            if (modes.contains(CultureDisplayMode.translation) &&
-                item.passages.isEmpty &&
-                item.translation.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              _PoetrySupplement(
-                title: '翻译',
-                content: item.translation,
-                missing: '',
-              ),
-            ],
-            if (item.appreciation.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              _PoetrySupplement(
-                title: '赏析',
-                content: item.appreciation,
-                missing: '',
-              ),
-            ],
           ]),
-    );
+        ));
   }
 }
 
@@ -219,17 +206,13 @@ List<CulturePassage> _displayPassages(CultureItem item) {
 class _ParallelCulturePassageList extends ConsumerStatefulWidget {
   const _ParallelCulturePassageList({
     required this.item,
-    required this.controller,
     required this.showPinyin,
     required this.showTranslation,
-    required this.showNotes,
   });
 
   final CultureItem item;
-  final ScrollController controller;
   final bool showPinyin;
   final bool showTranslation;
-  final bool showNotes;
 
   @override
   ConsumerState<_ParallelCulturePassageList> createState() =>
@@ -309,126 +292,54 @@ class _ParallelCulturePassageListState
   @override
   Widget build(BuildContext context) {
     if (widget.showPinyin && _readings.isEmpty) _prefetch(0, _batchSize);
-    return ListView.builder(
-      controller: widget.controller,
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 30),
-      itemCount: _passages.length + 2,
-      itemBuilder: (context, index) {
-        if (index == 0) {
+    final settings = ref.watch(settingsControllerProvider).valueOrNull ??
+        const AppSettings();
+    final converter = ref.watch(hanScriptConverterProvider).valueOrNull;
+    if (converter == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    String display(String text) =>
+        converter.convert(text, settings.scriptDisplay);
+    return _ArticleReader(
+        key: ValueKey(widget.item.id),
+        indentParagraphs: widget.item.category != CultureCategory.other,
+        revision: Object.hash(
+            settings.scriptDisplay, settings.fontScale, widget.showPinyin),
+        open: widget.showTranslation,
+        onClose: () => _closeArticleTranslation(ref),
+        showParagraphNumbers: settings.showParagraphNumbers,
+        showAnnotationMarkers: settings.showAnnotationMarkers,
+        sourceCount: _passages.length,
+        sourceTextFor: (index) => display(_passages[index].original),
+        translationFor: (index) => display(_passages[index].translation),
+        translationHeadingFor: (index) => display(_passages[index].heading),
+        notes: display(widget.item.notes),
+        appreciation: display(widget.item.appreciation),
+        header: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(display(widget.item.title),
+              style: Theme.of(context).textTheme.headlineMedium),
+          const SizedBox(height: 8),
+          Text(display(widget.item.subtitle),
+              style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+          const Divider(height: 24),
+        ]),
+        sourceBuilder: (context, index) {
+          if (widget.showPinyin) _prepareReadings(index);
+          final passage = _passages[index];
+          final original = display(passage.original);
           return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(widget.item.title,
-                  style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 8),
-              Text(
-                widget.item.subtitle,
-                style: TextStyle(color: Theme.of(context).colorScheme.primary),
-              ),
-              const Divider(height: 36),
-            ],
-          );
-        }
-        if (index == _passages.length + 1) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (widget.showNotes && widget.item.notes.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _PoetrySupplement(
-                  title: '注释',
-                  content: widget.item.notes,
-                  missing: '',
-                ),
-              ],
-              if (widget.item.appreciation.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _PoetrySupplement(
-                  title: '赏析',
-                  content: widget.item.appreciation,
-                  missing: '',
-                ),
-              ],
-            ],
-          );
-        }
-        final passageIndex = index - 1;
-        if (widget.showPinyin) _prepareReadings(passageIndex);
-        return _ParallelCulturePassage(
-          passage: _passages[passageIndex],
-          showPinyin: widget.showPinyin,
-          readings: widget.showPinyin ? _readingFor(passageIndex) : null,
-          showTranslation: widget.showTranslation,
-        );
-      },
-    );
-  }
-}
-
-class _ParallelCulturePassage extends StatelessWidget {
-  const _ParallelCulturePassage({
-    required this.passage,
-    required this.showPinyin,
-    required this.readings,
-    required this.showTranslation,
-  });
-
-  final CulturePassage passage;
-  final bool showPinyin;
-  final Future<List<String>>? readings;
-  final bool showTranslation;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Padding(
-      padding: EdgeInsets.only(bottom: passage.heading.isEmpty ? 18 : 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (passage.heading.isNotEmpty) ...[
-            Text(
-              passage.heading,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colors.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 10),
-          ],
-          if (showPinyin)
-            _PinyinText(text: passage.original, readings: readings)
-          else
-            Text(
-              _protectLineInitialPunctuation(passage.original),
-              style: const TextStyle(height: 1.9, fontSize: 17),
-            ),
-          if (showTranslation && passage.translation.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: colors.secondaryContainer.withValues(alpha: .42),
-                borderRadius: BorderRadius.circular(12),
-                border: BorderDirectional(
-                  start: BorderSide(color: colors.secondary, width: 3),
-                ),
-              ),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-                child: Text(
-                  _protectLineInitialPunctuation(passage.translation),
-                  style: TextStyle(
-                    height: 1.75,
-                    color: colors.onSecondaryContainer,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (passage.heading.isNotEmpty)
+                  Text(display(passage.heading),
+                      style: Theme.of(context).textTheme.titleMedium),
+                _ArticleOriginalText(
+                    text: original,
+                    showPinyin: widget.showPinyin,
+                    readings: widget.showPinyin ? _readingFor(index) : null,
+                    style: const TextStyle(height: 1.9, fontSize: 17)),
+              ]);
+        });
   }
 }
 
@@ -797,7 +708,13 @@ class _SurnameHalf extends StatelessWidget {
 }
 
 class _PinyinText extends ConsumerWidget {
-  const _PinyinText({required this.text, this.readings});
+  const _PinyinText(
+      {required this.text,
+      this.readings,
+      this.markers = const [],
+      this.indent = true});
+  final List<_ReadingNoteMarker> markers;
+  final bool indent;
   final String text;
   final Future<List<String>>? readings;
 
@@ -809,7 +726,9 @@ class _PinyinText extends ConsumerWidget {
         future: future,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Text(_protectLineInitialPunctuation(text));
+            return Text.rich(TextSpan(
+                children: _annotatedReadingSpans(context, text, markers,
+                    indent: indent)));
           }
           if (!snapshot.hasData) return _buildReadingPlaceholder(context);
           return _buildReadingText(context, snapshot.data!);
@@ -818,7 +737,9 @@ class _PinyinText extends ConsumerWidget {
     }
     return ref.watch(contextualPinyinProvider(text)).when(
           loading: () => _buildReadingPlaceholder(context),
-          error: (_, __) => Text(_protectLineInitialPunctuation(text)),
+          error: (_, __) => Text.rich(TextSpan(
+              children: _annotatedReadingSpans(context, text, markers,
+                  indent: indent))),
           data: (pinyin) => _buildReadingText(context, pinyin),
         );
   }
@@ -833,51 +754,69 @@ class _PinyinText extends ConsumerWidget {
 
   Widget _buildReadingText(BuildContext context, List<String> pinyin,
       {bool pending = false}) {
-    final cellWidth = MediaQuery.textScalerOf(context).scale(18) * 1.5;
+    final cellWidth = MediaQuery.textScalerOf(context).scale(18) * 1.1;
+    final paragraphNumber = context
+        .dependOnInheritedWidgetOfExactType<_InlineReadingNotes>()
+        ?.paragraphNumber;
     return Wrap(
-      spacing: 1,
+      spacing: 0,
       runSpacing: 7,
       crossAxisAlignment: WrapCrossAlignment.end,
       children: [
-        for (final run in _pinyinRuns(text, pinyin))
-          if (run.isLineBreak)
-            const SizedBox(width: double.infinity, height: 4)
-          else
-            SizedBox(
-              width: run.text.characters.length * cellWidth,
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                SizedBox(
-                  height: 15,
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: SizedBox(
+        if (indent) SizedBox(width: cellWidth * 2),
+        if (paragraphNumber != null)
+          Text('$paragraphNumber ',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.primary)),
+        for (final (run, attached) in _markedPinyinRuns(text, pinyin, markers))
+          if (run.isLineBreak) ...[
+            const SizedBox(width: double.infinity, height: 4),
+            if (indent) SizedBox(width: cellWidth * 2),
+          ] else
+            Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                      height: 15,
                       width: cellWidth,
                       child: ExcludeSemantics(
-                        excluding: pending,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(run.pinyin,
-                              style: TextStyle(
-                                  fontSize: 9,
-                                  color: pending
-                                      ? Colors.transparent
-                                      : Theme.of(context).colorScheme.primary)),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  for (final character in run.text.characters)
-                    SizedBox(
-                      width: cellWidth,
-                      child: Text(character,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 18)),
-                    ),
+                          excluding: pending,
+                          child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(run.pinyin,
+                                  style: TextStyle(
+                                      fontSize: 9,
+                                      color: pending
+                                          ? Colors.transparent
+                                          : Theme.of(context)
+                                              .colorScheme
+                                              .primary))))),
+                  Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        for (final (character, numbers)
+                            in _markedPinyinCharacters(run.text, attached)) ...[
+                          SizedBox(
+                              width: cellWidth,
+                              child: Text(character,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 18))),
+                          for (final number in numbers)
+                            Transform.translate(
+                                offset: Offset(
+                                    0,
+                                    -MediaQuery.textScalerOf(context)
+                                            .scale(18) *
+                                        .4),
+                                child: _ReadingInlineMarker(number: number)),
+                        ],
+                      ]),
                 ]),
-              ]),
-            ),
       ],
     );
   }

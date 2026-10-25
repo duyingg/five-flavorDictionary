@@ -12,6 +12,9 @@ import '../core/widgets/skin_widgets.dart';
 import '../core/widgets/global_han_lookup.dart';
 import '../features/domain/models.dart';
 import 'app_routes.dart';
+import 'clipboard_search_coordinator.dart';
+import 'floating_search_coordinator.dart';
+import 'preference_sync_region.dart';
 import 'providers.dart';
 import 'router.dart';
 
@@ -29,7 +32,9 @@ class DictionaryApp extends ConsumerWidget {
       routerConfig: appRouter,
       builder: (context, child) => Directionality(
         textDirection:
-            settings.leftHanded ? TextDirection.rtl : TextDirection.ltr,
+            settings.experimentalFeaturesEnabled && settings.leftHanded
+                ? TextDirection.rtl
+                : TextDirection.ltr,
         child: GlobalHanLookupRegion(
           enabled: settings.globalHanLookupEnabled,
           onCharacter: (value) {
@@ -44,7 +49,14 @@ class DictionaryApp extends ConsumerWidget {
                   data: MediaQuery.of(context).copyWith(
                     textScaler: TextScaler.linear(settings.fontScale.factor),
                   ),
-                  child: child!,
+                  child: PreferenceSyncRegion(
+                    child: FloatingSearchCoordinator(
+                      child: ClipboardSearchCoordinator(
+                        enabled: settings.clipboardSearchEnabled,
+                        child: child!,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

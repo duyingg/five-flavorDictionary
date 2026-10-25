@@ -25,6 +25,7 @@ abstract final class AppRoutes {
   static const learningClassicalDictionary = '/learning/classical-dictionary';
   static const learningWordStudy = '/learning/words';
 
+  static const settingsFloating = '/settings/floating';
   static const settingsGeneral = '/settings/general';
   static const settingsSkin = '/settings/skin';
   static const settingsDaily = '/settings/daily';

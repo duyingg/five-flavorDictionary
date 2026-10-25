@@ -51,47 +51,83 @@ class LearningPage extends StatelessWidget {
           child: Column(children: [
             const PageHeading('学习'),
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
-                itemCount: _items.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 7),
-                itemBuilder: (_, i) {
-                  final item = _items[i];
-                  return Card(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () => context.push(item.$4),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 18, vertical: 14),
-                        child: Row(children: [
-                          Icon(item.$3,
-                              color: i.isEven
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(context).colorScheme.secondary,
-                              size: 34),
-                          const SizedBox(width: 16),
-                          Expanded(
-                              child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                Text(item.$1,
-                                    style:
-                                        Theme.of(context).textTheme.titleLarge),
-                                const SizedBox(height: 3),
-                                Text(item.$2,
-                                    style: TextStyle(
-                                        color: Theme.of(context)
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final theme = Theme.of(context);
+                  final descriptionStyle = theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ) ??
+                      TextStyle(color: theme.colorScheme.onSurfaceVariant);
+                  // List padding, Card margins, inner padding and both icons.
+                  final textWidth = constraints.maxWidth - 150;
+                  final availableTextWidth = textWidth > 1 ? textWidth : 1.0;
+                  double textHeight(String value, TextStyle? style) {
+                    final painter = TextPainter(
+                      text: TextSpan(text: value, style: style),
+                      textDirection: Directionality.of(context),
+                      textScaler: MediaQuery.textScalerOf(context),
+                    )..layout(maxWidth: availableTextWidth);
+                    final height = painter.height;
+                    painter.dispose();
+                    return height;
+                  }
+
+                  final contentHeight = _items.map((item) {
+                    final labelHeight =
+                        textHeight(item.$1, theme.textTheme.titleLarge) +
+                            3 +
+                            textHeight(item.$2, descriptionStyle);
+                    return labelHeight > 34 ? labelHeight : 34.0;
+                  }).reduce((a, b) => a > b ? a : b);
+                  final cardHeight = contentHeight + 36;
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+                    itemCount: _items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 7),
+                    itemBuilder: (_, i) {
+                      final item = _items[i];
+                      return SizedBox(
+                        height: cardHeight,
+                        child: Card(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () => context.push(item.$4),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 18, vertical: 14),
+                              child: Row(children: [
+                                Icon(item.$3,
+                                    color: i.isEven
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Theme.of(context)
                                             .colorScheme
-                                            .onSurfaceVariant)),
-                              ])),
-                          Icon(Icons.chevron_right,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant),
-                        ]),
-                      ),
-                    ),
+                                            .secondary,
+                                    size: 34),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                    child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                      Text(item.$1,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleLarge),
+                                      const SizedBox(height: 3),
+                                      Text(item.$2, style: descriptionStyle),
+                                    ])),
+                                Icon(Icons.chevron_right,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant),
+                              ]),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
               ),

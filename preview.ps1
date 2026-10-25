@@ -7,6 +7,8 @@ param(
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $flutterCandidates = @(
+    'D:\ChatGPT\dependence\flutter\bin\flutter.bat',
+    'D:\ChatGPT\dependence\sdks\flutter\bin\flutter.bat',
     'D:\download\flutter_windows_3.47.0-stable\flutter\bin\flutter.bat',
     (Get-Command flutter -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -ErrorAction SilentlyContinue)
 ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }

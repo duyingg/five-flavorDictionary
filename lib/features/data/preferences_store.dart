@@ -5,12 +5,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/design/bundled_skin_loader.dart';
 import '../domain/models.dart';
+import 'preference_transactions.dart';
 
 abstract final class PreferencesKeys {
   static const dailyType = 'v1.settings.dailyContentType';
   static const fontScale = 'v1.settings.fontScale';
   static const keepHistory = 'v1.settings.keepSearchHistory';
-  static const autofocus = 'v1.settings.autofocusAfterClear';
+  static const experimentalFeatures = 'v1.settings.experimentalFeatures';
+  static const clipboardSearch = 'v1.settings.clipboardSearch';
+  static const floatingSearch = 'v1.settings.floatingSearch';
   static const leftHanded = 'v1.settings.leftHanded';
   static const reduceDecoration = 'v1.settings.reduceDecoration';
   static const fullPoetryLibrary = 'v1.settings.fullPoetryLibrary';
@@ -28,6 +31,13 @@ abstract final class PreferencesKeys {
   static const showStrokeCount = 'v2.settings.entry.showStrokeCount';
   static const showStructure = 'v2.settings.entry.showStructure';
   static const showUnicode = 'v2.settings.entry.showUnicode';
+  static const showScriptRelations = 'v3.settings.entry.showScriptRelations';
+  static const showCharacterLevel = 'v3.settings.entry.showCharacterLevel';
+  static const showFavorites = 'v3.settings.entry.showFavorites';
+  static const showParagraphNumbers =
+      'v3.settings.reading.showParagraphNumbers';
+  static const showAnnotationMarkers =
+      'v3.settings.reading.showAnnotationMarkers';
   static const showStrokeOrder = 'v2.settings.entry.showStrokeOrder';
   static const favorites = 'v1.favorites.characters';
   static const searchHistory = 'v1.searchHistory.characters';
@@ -89,7 +99,12 @@ class PreferencesStore {
       fontScale: AppFontScale.values
           .byName(prefs.getString(PreferencesKeys.fontScale) ?? 'standard'),
       keepSearchHistory: prefs.getBool(PreferencesKeys.keepHistory) ?? true,
-      autofocusAfterClear: prefs.getBool(PreferencesKeys.autofocus) ?? true,
+      experimentalFeaturesEnabled:
+          prefs.getBool(PreferencesKeys.experimentalFeatures) ?? false,
+      clipboardSearchEnabled:
+          prefs.getBool(PreferencesKeys.clipboardSearch) ?? false,
+      floatingSearchEnabled:
+          prefs.getBool(PreferencesKeys.floatingSearch) ?? false,
       leftHanded: prefs.getBool(PreferencesKeys.leftHanded) ?? false,
       reduceDecoration:
           prefs.getBool(PreferencesKeys.reduceDecoration) ?? false,
@@ -117,6 +132,15 @@ class PreferencesStore {
       showStrokeCount: prefs.getBool(PreferencesKeys.showStrokeCount) ?? true,
       showStructure: prefs.getBool(PreferencesKeys.showStructure) ?? true,
       showUnicode: prefs.getBool(PreferencesKeys.showUnicode) ?? true,
+      showScriptRelations:
+          prefs.getBool(PreferencesKeys.showScriptRelations) ?? true,
+      showCharacterLevel:
+          prefs.getBool(PreferencesKeys.showCharacterLevel) ?? true,
+      showFavorites: prefs.getBool(PreferencesKeys.showFavorites) ?? true,
+      showParagraphNumbers:
+          prefs.getBool(PreferencesKeys.showParagraphNumbers) ?? true,
+      showAnnotationMarkers:
+          prefs.getBool(PreferencesKeys.showAnnotationMarkers) ?? true,
       showStrokeOrder: prefs.getBool(PreferencesKeys.showStrokeOrder) ?? true,
     );
   }
@@ -130,7 +154,12 @@ class PreferencesStore {
       prefs.setString(PreferencesKeys.dailyType, value.dailyContentType.name),
       prefs.setString(PreferencesKeys.fontScale, value.fontScale.name),
       prefs.setBool(PreferencesKeys.keepHistory, value.keepSearchHistory),
-      prefs.setBool(PreferencesKeys.autofocus, value.autofocusAfterClear),
+      prefs.setBool(PreferencesKeys.experimentalFeatures,
+          value.experimentalFeaturesEnabled),
+      prefs.setBool(
+          PreferencesKeys.clipboardSearch, value.clipboardSearchEnabled),
+      prefs.setBool(
+          PreferencesKeys.floatingSearch, value.floatingSearchEnabled),
       prefs.setBool(PreferencesKeys.leftHanded, value.leftHanded),
       prefs.setBool(PreferencesKeys.reduceDecoration, value.reduceDecoration),
       prefs.setBool(PreferencesKeys.fullPoetryLibrary, value.fullPoetryLibrary),
@@ -159,6 +188,15 @@ class PreferencesStore {
       prefs.setBool(PreferencesKeys.showStrokeCount, value.showStrokeCount),
       prefs.setBool(PreferencesKeys.showStructure, value.showStructure),
       prefs.setBool(PreferencesKeys.showUnicode, value.showUnicode),
+      prefs.setBool(
+          PreferencesKeys.showScriptRelations, value.showScriptRelations),
+      prefs.setBool(
+          PreferencesKeys.showCharacterLevel, value.showCharacterLevel),
+      prefs.setBool(PreferencesKeys.showFavorites, value.showFavorites),
+      prefs.setBool(
+          PreferencesKeys.showParagraphNumbers, value.showParagraphNumbers),
+      prefs.setBool(
+          PreferencesKeys.showAnnotationMarkers, value.showAnnotationMarkers),
       prefs.setBool(PreferencesKeys.showStrokeOrder, value.showStrokeOrder),
     ]);
   }
@@ -202,25 +240,57 @@ class PreferencesStore {
   }
 
   Future<Set<String>> loadFavorites() async =>
-      (await SharedPreferences.getInstance())
+      (await PreferenceTransactions.fresh())
           .getStringList(PreferencesKeys.favorites)
           ?.toSet() ??
       {};
 
-  Future<void> saveFavorites(Set<String> values) async =>
-      (await SharedPreferences.getInstance())
-          .setStringList(PreferencesKeys.favorites, values.toList());
+  Future<void> saveFavorites(Set<String> values) =>
+      PreferenceTransactions.write('favorites', (preferences) async {
+        await preferences.setStringList(
+            PreferencesKeys.favorites, values.toList());
+      });
+
+  Future<Set<String>> toggleFavorite(String value) =>
+      PreferenceTransactions.write('favorites', (preferences) async {
+        final next =
+            preferences.getStringList(PreferencesKeys.favorites)?.toSet() ??
+                <String>{};
+        next.contains(value) ? next.remove(value) : next.add(value);
+        await preferences.setStringList(
+            PreferencesKeys.favorites, next.toList());
+        return next;
+      });
 
   Future<List<String>> loadSearchHistory() async =>
-      (await SharedPreferences.getInstance())
+      (await PreferenceTransactions.fresh())
           .getStringList(PreferencesKeys.searchHistory) ??
       const [];
 
-  Future<void> saveSearchHistory(List<String> values) async =>
-      (await SharedPreferences.getInstance()).setStringList(
-        PreferencesKeys.searchHistory,
-        values.take(100).toList(),
-      );
+  Future<void> saveSearchHistory(List<String> values) =>
+      PreferenceTransactions.write('history', (preferences) async {
+        await preferences.setStringList(
+            PreferencesKeys.searchHistory, values.take(100).toList());
+      });
+
+  Future<List<String>> addSearchHistory(String value,
+          {bool respectGlobalPreference = true}) =>
+      PreferenceTransactions.write('history', (preferences) async {
+        final previous =
+            preferences.getStringList(PreferencesKeys.searchHistory) ??
+                <String>[];
+        if (respectGlobalPreference &&
+            preferences.getBool(PreferencesKeys.keepHistory) == false) {
+          return previous;
+        }
+        final next = [
+          value,
+          for (final item in previous)
+            if (item != value) item
+        ].take(100).toList(growable: false);
+        await preferences.setStringList(PreferencesKeys.searchHistory, next);
+        return next;
+      });
 
   Future<List<SentenceNote>> loadSentenceNotes() async {
     final encoded = (await SharedPreferences.getInstance())

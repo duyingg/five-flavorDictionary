@@ -116,7 +116,10 @@ class _CultureModeSelector extends ConsumerWidget {
       ),
       showSelectedIcon: false,
       segments: [
-        for (final value in CultureDisplayMode.values)
+        for (final value in [
+          CultureDisplayMode.reading,
+          CultureDisplayMode.translation
+        ])
           ButtonSegment(value: value, label: Text(value.label)),
       ],
       multiSelectionEnabled: true,
@@ -248,8 +251,12 @@ class _CultureCard extends StatelessWidget {
                                 .colorScheme
                                 .onSurfaceVariant)),
                     const SizedBox(height: 5),
-                    Text(item.summary,
-                        maxLines: 2, overflow: TextOverflow.ellipsis),
+                    Text(
+                        item.category == CultureCategory.other
+                            ? item.summary
+                            : indentParagraphs(item.summary),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),

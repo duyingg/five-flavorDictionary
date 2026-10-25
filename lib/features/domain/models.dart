@@ -216,7 +216,9 @@ class AppSettings {
     this.dailyContentType = DailyContentType.character,
     this.fontScale = AppFontScale.standard,
     this.keepSearchHistory = true,
-    this.autofocusAfterClear = true,
+    this.experimentalFeaturesEnabled = false,
+    this.clipboardSearchEnabled = false,
+    this.floatingSearchEnabled = false,
     this.leftHanded = false,
     this.reduceDecoration = false,
     this.fullPoetryLibrary = false,
@@ -234,12 +236,21 @@ class AppSettings {
     this.showStrokeCount = true,
     this.showStructure = true,
     this.showUnicode = true,
+    this.showScriptRelations = true,
+    this.showCharacterLevel = true,
+    this.showFavorites = true,
+    this.showParagraphNumbers = true,
+    this.showAnnotationMarkers = true,
     this.showStrokeOrder = true,
   });
   final DailyContentType dailyContentType;
   final AppFontScale fontScale;
   final bool keepSearchHistory;
-  final bool autofocusAfterClear;
+  final bool experimentalFeaturesEnabled;
+  final bool clipboardSearchEnabled;
+
+  /// Legacy value retained only for the one-time floating settings migration.
+  final bool floatingSearchEnabled;
   final bool leftHanded;
   final bool reduceDecoration;
   final bool fullPoetryLibrary;
@@ -257,13 +268,20 @@ class AppSettings {
   final bool showStrokeCount;
   final bool showStructure;
   final bool showUnicode;
+  final bool showScriptRelations;
+  final bool showCharacterLevel;
+  final bool showFavorites;
+  final bool showParagraphNumbers;
+  final bool showAnnotationMarkers;
   final bool showStrokeOrder;
 
   AppSettings copyWith({
     DailyContentType? dailyContentType,
     AppFontScale? fontScale,
     bool? keepSearchHistory,
-    bool? autofocusAfterClear,
+    bool? experimentalFeaturesEnabled,
+    bool? clipboardSearchEnabled,
+    bool? floatingSearchEnabled,
     bool? leftHanded,
     bool? reduceDecoration,
     bool? fullPoetryLibrary,
@@ -282,13 +300,23 @@ class AppSettings {
     bool? showStrokeCount,
     bool? showStructure,
     bool? showUnicode,
+    bool? showScriptRelations,
+    bool? showCharacterLevel,
+    bool? showFavorites,
+    bool? showParagraphNumbers,
+    bool? showAnnotationMarkers,
     bool? showStrokeOrder,
   }) =>
       AppSettings(
         dailyContentType: dailyContentType ?? this.dailyContentType,
         fontScale: fontScale ?? this.fontScale,
         keepSearchHistory: keepSearchHistory ?? this.keepSearchHistory,
-        autofocusAfterClear: autofocusAfterClear ?? this.autofocusAfterClear,
+        experimentalFeaturesEnabled:
+            experimentalFeaturesEnabled ?? this.experimentalFeaturesEnabled,
+        clipboardSearchEnabled:
+            clipboardSearchEnabled ?? this.clipboardSearchEnabled,
+        floatingSearchEnabled:
+            floatingSearchEnabled ?? this.floatingSearchEnabled,
         leftHanded: leftHanded ?? this.leftHanded,
         reduceDecoration: reduceDecoration ?? this.reduceDecoration,
         fullPoetryLibrary: fullPoetryLibrary ?? this.fullPoetryLibrary,
@@ -308,6 +336,12 @@ class AppSettings {
         showStrokeCount: showStrokeCount ?? this.showStrokeCount,
         showStructure: showStructure ?? this.showStructure,
         showUnicode: showUnicode ?? this.showUnicode,
+        showScriptRelations: showScriptRelations ?? this.showScriptRelations,
+        showCharacterLevel: showCharacterLevel ?? this.showCharacterLevel,
+        showFavorites: showFavorites ?? this.showFavorites,
+        showParagraphNumbers: showParagraphNumbers ?? this.showParagraphNumbers,
+        showAnnotationMarkers:
+            showAnnotationMarkers ?? this.showAnnotationMarkers,
         showStrokeOrder: showStrokeOrder ?? this.showStrokeOrder,
       );
 }

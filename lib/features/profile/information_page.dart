@@ -82,7 +82,7 @@ class _InformationPageState extends State<InformationPage> {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 16),
-              const Text('一款集汉字与词语查询、学习训练、诗词和传统文化阅读于一体的离线应用。',
+              const ParagraphText('一款集汉字与词语查询、学习训练、诗词和传统文化阅读于一体的离线应用。',
                   textAlign: TextAlign.center, style: TextStyle(height: 1.7)),
               const SizedBox(height: 18),
               const Card(
@@ -126,8 +126,8 @@ class _InformationPageState extends State<InformationPage> {
                   '小学语文生字在哪里？', '进入“学习 → 小学语文生字”，可按一年级至六年级和上下册切换，并按汉字或拼音搜索。'),
               const _HelpTile(
                   '造句内容会保存吗？', '会。造句以便签形式保存在本机，记录创作时间，并支持进入批量管理后删除。'),
-              const _HelpTile(
-                  '如何阅读诗词？', '文化页选择“诗词”，可搜索作者、标题、正文并筛选。读音、注释和翻译有内容时即可开启。'),
+              const _HelpTile('如何阅读诗词？',
+                  '文化页选择“诗词”，可搜索作者、标题、正文并筛选。可开启“读音”；点击“翻译”后，上方显示原文，下方通过横向标签或左右滑动切换注释、译文和赏析，并同步滚动。典籍译文按已有段落关系对照，整篇参考内容按阅读进度跟随。参考分页以较深底色区分；原文段落和译文使用1、2、3等段号，注释页不显示段号；原文可识别的注释词目和注释使用①②等对应角标。两类标记可在设置中分别关闭。'),
               const _HelpTile(
                   '如何在文化内容中快捷查字？', '点击文化页和详情正文中的汉字即可打开单字详情；长按仍可选择和复制文字。'),
               const _HelpTile('如何切换或寻找皮肤？',
@@ -136,6 +136,12 @@ class _InformationPageState extends State<InformationPage> {
                   '如何更改诗词库？', '进入“我的 → 更改诗词库”，查看当前诗词库并切换。全量库较大，首次加载会更久。'),
               const _HelpTile('每日内容怎么切换？',
                   '点击首页“每日内容”标题，或进入“我的 → 设置 → 每日内容偏好”，可选汉字、词语、成语或诗句。'),
+              const _HelpTile('如何使用实验性功能？',
+                  '进入“我的 → 设置”底部，开启“实验性功能”后可开启左手模式。剪切板自动搜索已移至普通设置，与实验性功能总开关无关。'),
+              const _HelpTile('如何开启剪切板自动搜索？',
+                  '主应用在“我的 → 设置”开启，悬浮窗在“我的 → 悬浮球设置 → 查询与操作”单独开启，默认均关闭。仅识别1—16个连续汉字；主应用启动、返回前台及字词结果页内容变化时查询，悬浮窗在显示并获得焦点时查询。两个开关互不影响。'),
+              const _HelpTile('如何使用悬浮球查询？',
+                  '安卓端进入“我的 → 悬浮球设置”开启“悬浮球查询”，首次需在系统页面允许“显示在其他应用上层”。点击应用图标样式的悬浮球展开独立查字窗口，输入 1—16 个连续汉字后查询，默认显示读音、部首和释义，其他显示项可在悬浮球设置中开启。窗口默认宽度100%、高度40%，搜索框会随查询内容上下滚动。设置页按悬浮球、窗口大小、字号、词条显示、查询操作分类。悬浮窗取消额外不透明度，皮肤跟随全局并加深底色；简繁、查询历史、左手模式和减少装饰也跟随全局，其他显示与操作选项独立保存。搜索框可关闭，也可单独开启悬浮窗剪切板自动搜索。拖动悬浮球松手后平滑贴边，并记住停靠边和高度比例，重启及旋转屏幕后恢复位置；窗内标题或拖动图标也可移动窗口，窗口宽高可在“悬浮球设置”中调整；闲置 5 秒后悬浮球收进屏幕边缘，点击唤醒，再点一次展开窗口。点击“收起”图标回到悬浮球；可通过通知或“悬浮球设置”中的开关停止功能。'),
               const _HelpTile('如何反馈问题？', '进入“我的 → 反馈与建议”，可填写反馈问卷或复制反馈交流群号。'),
             ] else if (widget.kind == 'privacy') ...[
               Icon(Icons.privacy_tip_outlined,
@@ -145,8 +151,20 @@ class _InformationPageState extends State<InformationPage> {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 14),
-              const Text(
+              const ParagraphText(
                 '核心功能可离线使用，无需注册账号，不含广告或统计分析 SDK。搜索历史、收藏、设置及您主动导入的内容默认只保存在本机。',
+                textAlign: TextAlign.center,
+                style: TextStyle(height: 1.7),
+              ),
+              const SizedBox(height: 12),
+              const ParagraphText(
+                '主应用与悬浮窗的剪切板自动搜索分别设置，默认均关闭。主动开启后，仅在对应界面显示并获得焦点时读取剪切板进行本机字词查询；失去焦点、进入后台或关闭功能后停止读取。主应用及悬浮窗的查询记录统一遵循全局“保留查询历史”设置。',
+                textAlign: TextAlign.center,
+                style: TextStyle(height: 1.7),
+              ),
+              const SizedBox(height: 12),
+              const ParagraphText(
+                '悬浮球查询默认关闭，仅在您授权并开启后显示在其他应用上层，并通过前台服务维持显示。悬浮窗处理您输入的查询文字；单独开启剪切板自动搜索后，也会在窗口显示并获得焦点时识别剪切板。不会读取其他应用的屏幕内容，查询在本机完成。可在通知或悬浮球设置中关闭。',
                 textAlign: TextAlign.center,
                 style: TextStyle(height: 1.7),
               ),
@@ -192,7 +210,7 @@ class _InformationPageState extends State<InformationPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
+              const ParagraphText(
                 '扫描二维码填写《五味字典》使用反馈问卷，或复制下方链接在浏览器中打开。',
                 textAlign: TextAlign.center,
                 style: TextStyle(height: 1.6),
@@ -255,6 +273,7 @@ class _HelpTile extends StatelessWidget {
         Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
             child: Align(
-                alignment: AlignmentDirectional.centerStart, child: Text(body)))
+                alignment: AlignmentDirectional.centerStart,
+                child: ParagraphText(body)))
       ]));
 }

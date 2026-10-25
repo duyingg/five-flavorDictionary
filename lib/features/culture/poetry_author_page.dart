@@ -105,15 +105,15 @@ class _PoetryAuthorPageState extends ConsumerState<PoetryAuthorPage> {
           Text('人物简介', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 10),
           if (profile != null) ...[
-            Text(display(profile.life),
+            ParagraphText(display(profile.life),
                 style: const TextStyle(fontSize: 16, height: 1.8)),
             const SizedBox(height: 14),
             Text('创作与作品', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            Text(display(profile.writing),
+            ParagraphText(display(profile.writing),
                 style: const TextStyle(fontSize: 16, height: 1.8)),
           ] else
-            Text(
+            ParagraphText(
               isAnonymous
                   ? '“佚名”表示作品未能确定个人作者。同一署名下可能有不同时期、不同来源的作品，不能视为一人的生平与创作。'
                   : '本应用暂未收录经过核实的生平简介。下方列出本地诗词库中署名和朝代相符的作品。',
@@ -123,7 +123,7 @@ class _PoetryAuthorPageState extends ConsumerState<PoetryAuthorPage> {
           Text('本库作品 · ${data.items.length} 首',
               style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 6),
-          Text('仅统计当前诗词库中朝代与作者署名相符的条目。',
+          ParagraphText('仅统计当前诗词库中朝代与作者署名相符的条目。',
               style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 12),
           if (data.items.isEmpty)
@@ -149,7 +149,7 @@ class _PoetryAuthorPageState extends ConsumerState<PoetryAuthorPage> {
               ),
           ],
           const SizedBox(height: 24),
-          Text('人物简介由本应用编写；作品列表来自本地诗词库。',
+          ParagraphText('人物简介由本应用编写；作品列表来自本地诗词库。',
               style: Theme.of(context).textTheme.bodySmall),
         ],
       ),

@@ -52,9 +52,11 @@ class _WordDetailPageState extends ConsumerState<WordDetailPage> {
       word: await wordFuture,
       entries: await entriesFuture,
     );
-    unawaited(
-      ref.read(searchHistoryControllerProvider.notifier).add(widget.value),
-    );
+    if (mounted) {
+      unawaited(
+        ref.read(searchHistoryControllerProvider.notifier).add(widget.value),
+      );
+    }
     return data;
   }
 
@@ -68,11 +70,16 @@ class _WordDetailPageState extends ConsumerState<WordDetailPage> {
       appBar: AppBar(
         title: const Text('词语详情'),
         actions: [
-          IconButton(
-            tooltip: isFavorite ? '取消收藏词语' : '收藏词语',
-            onPressed: () => toggleFavoriteWithFeedback(context, ref, key),
-            icon: Icon(isFavorite ? Icons.star : Icons.star_border),
-          ),
+          if (ref
+                  .watch(settingsControllerProvider)
+                  .valueOrNull
+                  ?.showFavorites ??
+              true)
+            IconButton(
+              tooltip: isFavorite ? '取消收藏词语' : '收藏词语',
+              onPressed: () => toggleFavoriteWithFeedback(context, ref, key),
+              icon: Icon(isFavorite ? Icons.star : Icons.star_border),
+            ),
           IconButton(
             tooltip: '返回首页',
             onPressed: () => context.go(AppRoutes.home),

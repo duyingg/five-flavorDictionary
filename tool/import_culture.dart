@@ -117,13 +117,6 @@ List<Map<String, dynamic>> _classicalItems(Directory outputDirectory) {
       summary: '收录《论语》原文与逐段白话翻译。',
     ),
     (
-      directory: '孟子',
-      id: 'mengzi',
-      title: '孟子',
-      subtitle: '仁政、民本与性善之论',
-      summary: '按篇章收录《孟子》原文与白话翻译。',
-    ),
-    (
       directory: '大学章句集注',
       id: 'daxue',
       title: '大学',
@@ -145,46 +138,11 @@ List<Map<String, dynamic>> _classicalItems(Directory outputDirectory) {
       summary: '收录《三字经》原文与逐段白话翻译。'
     ),
     (
-      directory: '世说新语',
-      id: 'shishuo-xinyu',
-      title: '世说新语',
-      subtitle: '魏晋人物言行与轶事',
-      summary: '收录《世说新语》原文与逐段白话翻译。'
-    ),
-    (
-      directory: '列子',
-      id: 'liezi',
-      title: '列子',
-      subtitle: '道家寓言与思想',
-      summary: '收录《列子》原文与逐段白话翻译。'
-    ),
-    (
       directory: '千字文',
       id: 'qianziwen',
       title: '千字文',
       subtitle: '四字韵文蒙学读本',
       summary: '收录《千字文》原文与逐段白话翻译。'
-    ),
-    (
-      directory: '周礼',
-      id: 'zhouli',
-      title: '周礼',
-      subtitle: '古代官制与礼制文献',
-      summary: '收录《周礼》原文与逐段白话翻译。'
-    ),
-    (
-      directory: '墨子',
-      id: 'mozi',
-      title: '墨子',
-      subtitle: '兼爱、非攻与尚贤',
-      summary: '收录《墨子》原文与逐段白话翻译。'
-    ),
-    (
-      directory: '天工开物',
-      id: 'tiangong-kaiwu',
-      title: '天工开物',
-      subtitle: '明代农工技术百科',
-      summary: '收录《天工开物》原文与逐段白话翻译。'
     ),
     (
       directory: '孙子兵法',
@@ -194,46 +152,11 @@ List<Map<String, dynamic>> _classicalItems(Directory outputDirectory) {
       summary: '收录《孙子兵法》原文与逐段白话翻译。'
     ),
     (
-      directory: '孙膑兵法',
-      id: 'sunbin-bingfa',
-      title: '孙膑兵法',
-      subtitle: '战国兵家著作',
-      summary: '收录《孙膑兵法》原文与逐段白话翻译。'
-    ),
-    (
-      directory: '尚书',
-      id: 'shangshu',
-      title: '尚书',
-      subtitle: '上古政事文献汇编',
-      summary: '收录《尚书》原文与逐段白话翻译。'
-    ),
-    (
-      directory: '山海经',
-      id: 'shanhaijing',
-      title: '山海经',
-      subtitle: '山川物产与神话地理',
-      summary: '收录《山海经》原文与逐段白话翻译。'
-    ),
-    (
-      directory: '庄子',
-      id: 'zhuangzi',
-      title: '庄子',
-      subtitle: '道家哲思与寓言',
-      summary: '收录《庄子》原文与逐段白话翻译。'
-    ),
-    (
       directory: '弟子规',
       id: 'dizigui',
       title: '弟子规',
       subtitle: '蒙学伦理与日常规范',
       summary: '收录《弟子规》原文与逐段白话翻译。'
-    ),
-    (
-      directory: '徐霞客游记',
-      id: 'xuxiake-youji',
-      title: '徐霞客游记',
-      subtitle: '地理考察与旅行日记',
-      summary: '收录《徐霞客游记》原文与逐段白话翻译。'
     ),
     (
       directory: '心经',
@@ -243,39 +166,11 @@ List<Map<String, dynamic>> _classicalItems(Directory outputDirectory) {
       summary: '收录《心经》原文与逐段白话翻译。'
     ),
     (
-      directory: '抱朴子',
-      id: 'baopuzi',
-      title: '抱朴子',
-      subtitle: '道教思想与魏晋论说',
-      summary: '收录《抱朴子》原文与逐段白话翻译。'
-    ),
-    (
-      directory: '文心雕龙',
-      id: 'wenxin-diaolong',
-      title: '文心雕龙',
-      subtitle: '中国古代文学理论',
-      summary: '收录《文心雕龙》原文与逐段白话翻译。'
-    ),
-    (
-      directory: '梦溪笔谈',
-      id: 'mengxi-bitan',
-      title: '梦溪笔谈',
-      subtitle: '北宋科学与见闻笔记',
-      summary: '收录《梦溪笔谈》原文与逐段白话翻译。'
-    ),
-    (
       directory: '棋经十三篇',
       id: 'qijing-shisanpian',
       title: '棋经十三篇',
       subtitle: '古代围棋理论著作',
       summary: '收录《棋经十三篇》原文与逐段白话翻译。'
-    ),
-    (
-      directory: '礼记',
-      id: 'liji',
-      title: '礼记',
-      subtitle: '先秦至秦汉礼制文献',
-      summary: '收录《礼记》原文与逐段白话翻译。'
     ),
     (
       directory: '易传',
@@ -292,25 +187,11 @@ List<Map<String, dynamic>> _classicalItems(Directory outputDirectory) {
       summary: '收录《老子》原文与逐段白话翻译。'
     ),
     (
-      directory: '荀子',
-      id: 'xunzi',
-      title: '荀子',
-      subtitle: '先秦儒家论说著作',
-      summary: '收录《荀子》原文与逐段白话翻译。'
-    ),
-    (
       directory: '菜根谭',
       id: 'caigentan',
       title: '菜根谭',
       subtitle: '处世修养格言集',
       summary: '收录《菜根谭》原文与逐段白话翻译。'
-    ),
-    (
-      directory: '韩非子',
-      id: 'hanfeizi',
-      title: '韩非子',
-      subtitle: '法家政治哲学著作',
-      summary: '收录《韩非子》原文与逐段白话翻译。'
     ),
     (
       directory: '鬼谷子',
@@ -541,7 +422,6 @@ String _sectionSortKey(Directory root, String book, File file) {
         '秋官司寇',
         '冬官考工记',
       ],
-    '山海经' => const ['山经', '海经'],
     '庄子' => const ['内篇', '外篇', '杂篇'],
     '天工开物' => const ['上篇', '中篇', '下篇'],
     '鬼谷子' => const ['鬼谷子', '本经阴符七术', '持枢', '中经'],
@@ -827,38 +707,6 @@ String _sectionSortKey(Directory root, String book, File file) {
         '法行',
         '哀公',
         '尧问',
-      ],
-    '孙膑兵法' => const [
-        '擒庞涓',
-        '见威王',
-        '威王问',
-        '陈忌问垒',
-        '篡卒',
-        '月战',
-        '八阵',
-        '地葆',
-        '势备',
-        '兵情',
-        '行篡',
-        '杀士',
-        '延气',
-        '官一',
-        '强兵',
-        '十阵',
-        '十问',
-        '略甲',
-        '客主人分',
-        '善者',
-        '五名五恭',
-        '兵失',
-        '将义',
-        '将德',
-        '将败',
-        '将失',
-        '雄牝城',
-        '五度九夺',
-        '积疏',
-        '奇正',
       ],
     '梦溪笔谈' => const [
         '故事一',
@@ -1298,28 +1146,6 @@ List<String> _nestedChapterOrder(String book, String section) {
         '渔父',
         '列御寇',
         '天下',
-      ],
-    ('山海经', '山经') => const [
-        '南山经',
-        '西山经',
-        '北山经',
-        '东山经',
-        '中山经',
-      ],
-    ('山海经', '海经') => const [
-        '海外南经',
-        '海外西经',
-        '海外北经',
-        '海外东经',
-        '海内南经',
-        '海内西经',
-        '海内北经',
-        '海内东经',
-        '大荒东经',
-        '大荒南经',
-        '大荒西经',
-        '大荒北经',
-        '海内经',
       ],
     _ => const [],
   };

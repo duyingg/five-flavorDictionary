@@ -34,7 +34,7 @@ class _CharacterDetailPageState extends ConsumerState<CharacterDetailPage> {
             .findExactCharacter(widget.value)
         : Future.value(null);
     future.then((entry) {
-      if (entry != null) {
+      if (entry != null && mounted) {
         ref.read(searchHistoryControllerProvider.notifier).add(entry.character);
       }
     });
@@ -181,17 +181,21 @@ class _CharacterDetailContentState
                   spacing: 6,
                   runSpacing: 4,
                   children: [
-                    for (var index = 0; index < scriptRelations.length; index++)
+                    if (settings.showScriptRelations)
+                      for (var index = 0;
+                          index < scriptRelations.length;
+                          index++)
+                        Chip(
+                          key: Key('character-attribute-script-$index'),
+                          visualDensity: VisualDensity.compact,
+                          label: Text(scriptRelations[index]),
+                        ),
+                    if (settings.showCharacterLevel)
                       Chip(
-                        key: Key('character-attribute-script-$index'),
+                        key: const Key('character-attribute-level'),
                         visualDensity: VisualDensity.compact,
-                        label: Text(scriptRelations[index]),
+                        label: Text('${entry.characterLevel} 级字'),
                       ),
-                    Chip(
-                      key: const Key('character-attribute-level'),
-                      visualDensity: VisualDensity.compact,
-                      label: Text('${entry.characterLevel} 级字'),
-                    ),
                     if (entry.pinyin.length > 1)
                       Chip(
                         key: const Key('character-attribute-reading-count'),
@@ -210,18 +214,19 @@ class _CharacterDetailContentState
               ],
             ),
           ),
-          IconButton(
-            tooltip: favorites.contains(entry.character) ? '取消收藏' : '收藏',
-            onPressed: () =>
-                toggleFavoriteWithFeedback(context, ref, entry.character),
-            icon: Icon(
-              favorites.contains(entry.character)
-                  ? Icons.star
-                  : Icons.star_border,
-              color: Theme.of(context).colorScheme.secondary,
-              size: 30,
+          if (settings.showFavorites)
+            IconButton(
+              tooltip: favorites.contains(entry.character) ? '取消收藏' : '收藏',
+              onPressed: () =>
+                  toggleFavoriteWithFeedback(context, ref, entry.character),
+              icon: Icon(
+                favorites.contains(entry.character)
+                    ? Icons.star
+                    : Icons.star_border,
+                color: Theme.of(context).colorScheme.secondary,
+                size: 30,
+              ),
             ),
-          ),
         ],
       ),
       if (showGlyphAndStroke) ...[

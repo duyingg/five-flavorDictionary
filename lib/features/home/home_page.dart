@@ -315,7 +315,7 @@ class _IndexButtons extends StatelessWidget {
   }
 }
 
-class _DailyCard extends StatelessWidget {
+class _DailyCard extends ConsumerWidget {
   const _DailyCard({
     required this.item,
     required this.onReroll,
@@ -330,90 +330,106 @@ class _DailyCard extends StatelessWidget {
   final ValueChanged<DailyContentType> onTypeSelected;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.all(compact ? 12 : 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(children: [
-              PopupMenuButton<DailyContentType>(
-                tooltip: '选择每日内容类型',
-                padding: EdgeInsets.zero,
-                onSelected: onTypeSelected,
-                itemBuilder: (context) => [
-                  for (final type in DailyContentType.values)
-                    PopupMenuItem(
-                      value: type,
-                      child: Text('每日${type.label}'),
-                    ),
-                ],
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 48),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Text('每日${item.type.label}',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    const Icon(Icons.arrow_drop_down),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final verseConverter = item.type == DailyContentType.verse
+        ? ref.watch(hanScriptConverterProvider)
+        : null;
+    if (verseConverter != null && !verseConverter.hasValue) {
+      return verseConverter.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : const EmptyState(title: '内容加载失败', message: '简繁转换资源加载失败');
+    }
+    final scriptDisplay =
+        ref.watch(settingsControllerProvider).valueOrNull?.scriptDisplay ??
+            ScriptDisplay.simplified;
+    String display(String value) =>
+        verseConverter?.valueOrNull?.convert(value, scriptDisplay) ?? value;
+
+    return Padding(
+      padding: EdgeInsets.all(compact ? 12 : 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            PopupMenuButton<DailyContentType>(
+              tooltip: '选择每日内容类型',
+              padding: EdgeInsets.zero,
+              onSelected: onTypeSelected,
+              itemBuilder: (context) => [
+                for (final type in DailyContentType.values)
+                  PopupMenuItem(
+                    value: type,
+                    child: Text('每日${type.label}'),
+                  ),
+              ],
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text('每日${item.type.label}',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const Icon(Icons.arrow_drop_down),
+                ]),
+              ),
+            ),
+            const Spacer(),
+            TextButton.icon(
+                onPressed: onReroll,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('换一个')),
+          ]),
+          Expanded(
+            child: Center(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: onOpen,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    if (item.pronunciation != null)
+                      Text(item.pronunciation!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
+                    SizedBox(height: compact ? 4 : 8),
+                    if (item.type == DailyContentType.verse)
+                      _VerseTitle(
+                        value: display(item.title),
+                        fontSize: compact ? 28 : 35,
+                      )
+                    else
+                      Text(display(item.title),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: item.type == DailyContentType.character
+                                  ? (compact ? 52 : 72)
+                                  : (compact ? 28 : 35),
+                              fontWeight: FontWeight.w600)),
+                    SizedBox(height: compact ? 8 : 18),
+                    ParagraphText(display(item.summary),
+                        textAlign: TextAlign.center,
+                        maxLines: compact ? 2 : null,
+                        overflow: compact ? TextOverflow.ellipsis : null),
+                    if (item.author != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                          '${display(item.author!)} · ${display(item.sourceTitle ?? '')}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant))
+                    ],
                   ]),
                 ),
               ),
-              const Spacer(),
-              TextButton.icon(
-                  onPressed: onReroll,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('换一个')),
-            ]),
-            Expanded(
-              child: Center(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: onOpen,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      if (item.pronunciation != null)
-                        Text(item.pronunciation!,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant)),
-                      SizedBox(height: compact ? 4 : 8),
-                      if (item.type == DailyContentType.verse)
-                        _VerseTitle(
-                          value: item.title,
-                          fontSize: compact ? 28 : 35,
-                        )
-                      else
-                        Text(item.title,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                fontSize:
-                                    item.type == DailyContentType.character
-                                        ? (compact ? 52 : 72)
-                                        : (compact ? 28 : 35),
-                                fontWeight: FontWeight.w600)),
-                      SizedBox(height: compact ? 8 : 18),
-                      Text(item.summary,
-                          textAlign: TextAlign.center,
-                          maxLines: compact ? 2 : null,
-                          overflow: compact ? TextOverflow.ellipsis : null),
-                      if (item.author != null) ...[
-                        const SizedBox(height: 8),
-                        Text('${item.author} · ${item.sourceTitle ?? ''}',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant))
-                      ],
-                    ]),
-                  ),
-                ),
-              ),
             ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _VerseTitle extends StatelessWidget {

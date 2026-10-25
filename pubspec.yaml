@@ -1,7 +1,7 @@
 name: wuwei_dictionary
 description: 五味字典——离线中文单字典、汉字学习与传统文化应用
 publish_to: "none"
-version: 1.1.0+25
+version: 1.1.0+37
 environment:
   sdk: ">=3.4.0 <4.0.0"
 

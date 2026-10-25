@@ -66,14 +66,25 @@ void main() {
     );
   });
 
-  test('词库序列在重复前遍历所有候选', () {
-    for (var length = 2; length <= 30; length++) {
-      final positions = <int>{
-        for (var offset = 0; offset < length; offset++)
-          service.selectIndex(
-              length, DateTime(2026, 10, 10), DailyContentType.idiom, offset),
-      };
-      expect(positions.length, length, reason: '$length');
+  test('每日只抽取最多十项，换一个在当日库中循环', () {
+    for (final type in const [
+      DailyContentType.word,
+      DailyContentType.idiom,
+      DailyContentType.verse,
+    ]) {
+      for (var length = 2; length <= 30; length++) {
+        final dailySize = length < 10 ? length : 10;
+        final positions = <int>{
+          for (var offset = 0; offset < dailySize; offset++)
+            service.selectIndex(length, DateTime(2026, 10, 10), type, offset),
+        };
+        expect(positions.length, dailySize, reason: '${type.name} $length');
+        expect(
+          service.selectIndex(length, DateTime(2026, 10, 10), type, dailySize),
+          service.selectIndex(length, DateTime(2026, 10, 10), type, 0),
+          reason: '${type.name} $length',
+        );
+      }
     }
   });
 

@@ -3,25 +3,13 @@
 const schoolBookIds = <String, List<String>>{
   'school-ru': [
     'classic-lunyu',
-    'classic-mengzi',
-    'classic-xunzi',
     'classic-daxue',
     'classic-zhongyong',
-    'classic-liji',
     'classic-yizhuan',
-    'classic-zhouli',
-    'classic-shangshu',
   ],
-  'school-dao': [
-    'classic-laozi',
-    'classic-zhuangzi',
-    'classic-liezi',
-    'classic-baopuzi',
-  ],
-  'school-mo': ['classic-mozi'],
-  'school-fa': ['classic-hanfeizi'],
+  'school-dao': ['classic-laozi'],
   'school-zongheng': ['classic-guiguzi'],
-  'school-bing': ['classic-sunzi-bingfa', 'classic-sunbin-bingfa'],
+  'school-bing': ['classic-sunzi-bingfa'],
 };
 
 final schoolBookIdSet = schoolBookIds.values.expand((ids) => ids).toSet();

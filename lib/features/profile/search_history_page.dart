@@ -14,7 +14,7 @@ class SearchHistoryPage extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('清空全部查询历史？'),
-        content: const Text('清空后无法恢复。'),
+        content: const ParagraphText('清空后无法恢复。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),

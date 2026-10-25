@@ -15,6 +15,15 @@
 
 ## 开发环境
 
+依赖优先使用 `D:\ChatGPT\dependence`。当前共享语料、网页缓存和项目编译缓存已集中存放，工作区原路径通过目录联接或文件硬链接兼容现有工具。迁移清单与保留边界见 [依赖管理说明](docs/依赖管理与迁移_2026-10-24.md)。
+
+```powershell
+# 只查看依赖路径状态，不迁移、不构建
+.\tool\use-shared-dependencies.ps1
+# 首次迁移，或在已存在共享依赖的机器上恢复兼容路径
+.\tool\use-shared-dependencies.ps1 -Apply
+```
+
 - Flutter 3.47 或兼容版本
 - JDK 21（Android 构筑脚本会自动查找兼容的 JDK 17–24）
 - Android SDK 与 Build-Tools 35
@@ -54,10 +63,10 @@ dart run tool/import_words.dart
 .\build-apk.ps1 -VersionIncrement patch
 ```
 
-`-ValidateOnly` 只执行检查，不会修改版本号。默认生成通用 APK；如需减小单个
-安装包，可使用 `-Mode split` 按 ABI 分包。
+默认生成通用 APK；如需减小单个安装包，可使用 `-Mode split` 按 ABI 分包，
+但必须根据设备架构分发对应文件。当前最低支持 Android 7.0。
 
-默认 APK 使用调试签名，只适合本地安装。公开发布前请配置私有发布密钥并执行：
+未配置发布密钥时，APK 使用调试签名，只适合本地安装。公开发布前请配置私有发布密钥并执行：
 
 ```powershell
 .\build-apk.ps1 -RequireReleaseSigning

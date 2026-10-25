@@ -1,5 +1,31 @@
 import 'package:flutter/material.dart';
 
+/// Presentation-only paragraph spacing; never changes stored/searchable text.
+String indentParagraphs(String text) => text
+    .split('\n')
+    .map((line) => line.trim().isEmpty ? '' : '\u3000\u3000${line.trimLeft()}')
+    .join('\n');
+
+class ParagraphText extends StatelessWidget {
+  const ParagraphText(this.data,
+      {super.key,
+      this.style,
+      this.textAlign = TextAlign.start,
+      this.maxLines,
+      this.overflow});
+  final String data;
+  final TextStyle? style;
+  final TextAlign textAlign;
+  final int? maxLines;
+  final TextOverflow? overflow;
+  @override
+  Widget build(BuildContext context) => Text(indentParagraphs(data),
+      style: style,
+      textAlign: textAlign,
+      maxLines: maxLines,
+      overflow: overflow);
+}
+
 double scrollProgress(ScrollController controller) {
   if (!controller.hasClients || controller.position.maxScrollExtent <= 0) {
     return 0;

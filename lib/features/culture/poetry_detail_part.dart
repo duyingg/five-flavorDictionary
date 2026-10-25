@@ -53,42 +53,15 @@ class _PoetryDetailPageState extends ConsumerState<PoetryDetailPage> {
   }
 }
 
-class _PoetryDetailBody extends ConsumerStatefulWidget {
+class _PoetryDetailBody extends ConsumerWidget {
   const _PoetryDetailBody({required this.item});
   final PoetryItem item;
 
   @override
-  ConsumerState<_PoetryDetailBody> createState() => _PoetryDetailBodyState();
-}
-
-class _PoetryDetailBodyState extends ConsumerState<_PoetryDetailBody> {
-  final _scrollController = ScrollController();
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    ref.listen(cultureDisplayModeProvider, (_, __) {
-      restoreScrollProgress(
-        _scrollController,
-        scrollProgress(_scrollController),
-      );
-    });
-    ref.listen(settingsControllerProvider, (previous, next) {
-      if (previous?.valueOrNull?.scriptDisplay ==
-          next.valueOrNull?.scriptDisplay) {
-        return;
-      }
-      restoreScrollProgress(
-        _scrollController,
-        scrollProgress(_scrollController),
-      );
-    });
-    final item = widget.item;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsControllerProvider).valueOrNull ??
+        const AppSettings();
+    final showFavorites = settings.showFavorites;
     final favoriteKey = FavoriteItem(FavoriteKind.poetry, item.id).storageKey;
     final isFavorite = ref
             .watch(favoritesControllerProvider)
@@ -99,34 +72,41 @@ class _PoetryDetailBodyState extends ConsumerState<_PoetryDetailBody> {
     if (converter == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    final scriptDisplay =
-        ref.watch(settingsControllerProvider).valueOrNull?.scriptDisplay ??
-            ScriptDisplay.simplified;
-    String display(String value) => converter.convert(value, scriptDisplay);
-    final displayContent = display(readablePoetrySource(item.content));
-    final modes = ref.watch(cultureDisplayModeProvider);
-    List<String> lines(String value) => value
+    String display(String text) =>
+        converter.convert(text, settings.scriptDisplay);
+    List<String> lines(String text) => text
         .split('\n')
         .where((line) => line.trim().isNotEmpty)
         .toList(growable: false);
-    final sourceLines = lines(displayContent);
-    final noteLines = lines(display(item.notes));
-    final translationLines = lines(display(item.translation));
-    final inlineNotes = modes.contains(CultureDisplayMode.notes) &&
-        sourceLines.length > 1 &&
-        noteLines.length == sourceLines.length;
-    final inlineTranslation = modes.contains(CultureDisplayMode.translation) &&
-        sourceLines.length > 1 &&
-        translationLines.length == sourceLines.length;
+    final sourceLines = lines(display(readablePoetrySource(item.content)));
+    final translated = lines(display(item.translation));
+    final modes = ref.watch(cultureDisplayModeProvider);
     return ResponsiveContent(
-      maxWidth: 760,
-      child: ListView(
-          controller: _scrollController,
-          padding: const EdgeInsets.all(24),
-          children: [
+        maxWidth: 800,
+        child: _ArticleReader(
+          key: ValueKey(item.id),
+          revision: Object.hash(settings.scriptDisplay, settings.fontScale,
+              modes.contains(CultureDisplayMode.reading)),
+          open: modes.contains(CultureDisplayMode.translation),
+          onClose: () => _closeArticleTranslation(ref),
+          showParagraphNumbers: settings.showParagraphNumbers,
+          showAnnotationMarkers: settings.showAnnotationMarkers,
+          sourceCount: sourceLines.length,
+          sourceTextFor: (index) => sourceLines[index],
+          sourceBuilder: (context, index) => _ArticleOriginalText(
+              text: sourceLines[index],
+              showPinyin: modes.contains(CultureDisplayMode.reading)),
+          translations:
+              translated.length == sourceLines.length && translated.isNotEmpty
+                  ? translated
+                  : null,
+          translation: display(item.translation),
+          notes: display(item.notes),
+          appreciation: display(item.appreciation),
+          header: Column(children: [
             Row(
               children: [
-                const SizedBox(width: 48),
+                if (showFavorites) const SizedBox(width: 48),
                 Expanded(
                   child: Text(
                     display(item.title),
@@ -134,12 +114,13 @@ class _PoetryDetailBodyState extends ConsumerState<_PoetryDetailBody> {
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
                 ),
-                IconButton(
-                  tooltip: isFavorite ? '取消收藏诗词' : '收藏诗词',
-                  onPressed: () =>
-                      toggleFavoriteWithFeedback(context, ref, favoriteKey),
-                  icon: Icon(isFavorite ? Icons.star : Icons.star_border),
-                ),
+                if (showFavorites)
+                  IconButton(
+                    tooltip: isFavorite ? '取消收藏诗词' : '收藏诗词',
+                    onPressed: () =>
+                        toggleFavoriteWithFeedback(context, ref, favoriteKey),
+                    icon: Icon(isFavorite ? Icons.star : Icons.star_border),
+                  ),
               ],
             ),
             const SizedBox(height: 8),
@@ -169,56 +150,8 @@ class _PoetryDetailBodyState extends ConsumerState<_PoetryDetailBody> {
               _TinyTag(display(item.emotion))
             ])),
             const Divider(height: 38),
-            if (inlineNotes || inlineTranslation)
-              for (var index = 0; index < sourceLines.length; index++) ...[
-                if (modes.contains(CultureDisplayMode.reading))
-                  _PinyinText(text: sourceLines[index])
-                else
-                  Text(_protectLineInitialPunctuation(sourceLines[index]),
-                      style: const TextStyle(fontSize: 18, height: 2)),
-                if (inlineNotes) ...[
-                  const SizedBox(height: 8),
-                  _PoetrySupplement(
-                      title: '注释', content: noteLines[index], missing: ''),
-                ],
-                if (inlineTranslation) ...[
-                  const SizedBox(height: 8),
-                  _PoetrySupplement(
-                      title: '翻译',
-                      content: translationLines[index],
-                      missing: ''),
-                ],
-                const SizedBox(height: 16),
-              ]
-            else if (modes.contains(CultureDisplayMode.reading))
-              _PinyinText(text: displayContent)
-            else
-              Text(_protectLineInitialPunctuation(displayContent),
-                  style: const TextStyle(fontSize: 18, height: 2)),
-            if (modes.contains(CultureDisplayMode.notes) &&
-                item.notes.isNotEmpty &&
-                !inlineNotes) ...[
-              const SizedBox(height: 24),
-              _PoetrySupplement(
-                  title: '注释', content: display(item.notes), missing: ''),
-            ],
-            if (modes.contains(CultureDisplayMode.translation) &&
-                item.translation.isNotEmpty &&
-                !inlineTranslation) ...[
-              const SizedBox(height: 24),
-              _PoetrySupplement(
-                  title: '翻译', content: display(item.translation), missing: ''),
-            ],
-            if (item.appreciation.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              _PoetrySupplement(
-                title: '赏析',
-                content: display(item.appreciation),
-                missing: '',
-              ),
-            ],
           ]),
-    );
+        ));
   }
 }
 
@@ -249,36 +182,4 @@ String readablePoetrySource(String content) {
     }
   }
   return result.join('\n');
-}
-
-class _PoetrySupplement extends StatelessWidget {
-  const _PoetrySupplement({
-    required this.title,
-    required this.content,
-    required this.missing,
-  });
-  final String title;
-  final String content;
-  final String missing;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 10),
-            Text(
-                _protectLineInitialPunctuation(
-                    content.isEmpty ? missing : content),
-                style: TextStyle(
-                  height: 1.7,
-                  color: content.isEmpty
-                      ? Theme.of(context).colorScheme.onSurfaceVariant
-                      : Theme.of(context).colorScheme.onSurface,
-                )),
-          ]),
-        ),
-      );
 }

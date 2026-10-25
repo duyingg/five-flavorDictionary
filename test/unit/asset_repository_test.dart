@@ -177,34 +177,17 @@ void main() {
       isTrue,
     );
     for (final id in [
-      'classic-mengzi',
       'classic-daxue',
       'classic-zhongyong',
       'classic-sanzijing',
-      'classic-shishuo-xinyu',
-      'classic-liezi',
       'classic-qianziwen',
-      'classic-zhouli',
-      'classic-mozi',
-      'classic-tiangong-kaiwu',
       'classic-sunzi-bingfa',
-      'classic-sunbin-bingfa',
-      'classic-shangshu',
-      'classic-shanhaijing',
-      'classic-zhuangzi',
       'classic-dizigui',
-      'classic-xuxiake-youji',
       'classic-xinjing',
-      'classic-baopuzi',
-      'classic-wenxin-diaolong',
-      'classic-mengxi-bitan',
       'classic-qijing-shisanpian',
-      'classic-liji',
       'classic-yizhuan',
       'classic-laozi',
-      'classic-xunzi',
       'classic-caigentan',
-      'classic-hanfeizi',
       'classic-guiguzi',
     ]) {
       final classic = await repository.getById(id);
@@ -223,7 +206,7 @@ void main() {
     }
 
     final other = await repository.getByCategory(CultureCategory.other);
-    expect(classics, hasLength(28));
+    expect(classics, hasLength(11));
     expect(classics.map((item) => item.id), contains('other-youmengying'));
     expect(classics.every((item) => !primerBookIds.contains(item.id)), isTrue);
     expect(other.where((item) => item.id.startsWith('classic-')), hasLength(3));

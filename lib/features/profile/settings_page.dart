@@ -9,6 +9,7 @@ import '../../core/design/skin_package_loader.dart';
 import '../../core/widgets/committed_slider.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../domain/models.dart';
+import '../floating_search/floating_settings_page.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({required this.kind, super.key});
@@ -23,6 +24,7 @@ class SettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (kind == 'floating') return const FloatingSettingsPage();
     final asyncSettings = ref.watch(settingsControllerProvider);
     return Scaffold(
       appBar: AppBar(title: Text(title)),
@@ -103,8 +105,6 @@ class SettingsPage extends ConsumerWidget {
                 ),
               ),
             ),
-            Text('此偏好会应用到所有索引页和学习模块',
-                style: TextStyle(fontSize: 12, color: muted)),
           ]),
         ),
       ),
@@ -114,6 +114,21 @@ class SettingsPage extends ConsumerWidget {
       Card(
         child: Column(
           children: [
+            SwitchListTile(
+                title: const Text('简繁关系（含简繁同形）'),
+                value: settings.showScriptRelations,
+                onChanged: (value) => controller.setSettings(
+                    (s) => s.copyWith(showScriptRelations: value))),
+            SwitchListTile(
+                title: const Text('字等级（一级字、二级字、三级字）'),
+                value: settings.showCharacterLevel,
+                onChanged: (value) => controller
+                    .setSettings((s) => s.copyWith(showCharacterLevel: value))),
+            SwitchListTile(
+                title: const Text('收藏按钮'),
+                value: settings.showFavorites,
+                onChanged: (value) => controller
+                    .setSettings((s) => s.copyWith(showFavorites: value))),
             SwitchListTile(
               title: const Text('拼音'),
               value: settings.showPinyin,
@@ -187,6 +202,18 @@ class SettingsPage extends ConsumerWidget {
       const SizedBox(height: 10),
       Card(
         child: Column(children: [
+          SwitchListTile(
+              title: const Text('显示段号'),
+              subtitle: const Text('开启翻译-译文时，为原文段落和译文显示1、2、3等段号'),
+              value: settings.showParagraphNumbers,
+              onChanged: (v) => controller
+                  .setSettings((s) => s.copyWith(showParagraphNumbers: v))),
+          SwitchListTile(
+              title: const Text('显示注释角标'),
+              subtitle: const Text('开启翻译-注释时, 在原文词目和注释处显示①②等对应角标'),
+              value: settings.showAnnotationMarkers,
+              onChanged: (v) => controller
+                  .setSettings((s) => s.copyWith(showAnnotationMarkers: v))),
           RadioGroup<AppFontScale>(
             groupValue: settings.fontScale,
             onChanged: (value) {
@@ -295,6 +322,17 @@ class SettingsPage extends ConsumerWidget {
       Card(
           child: Column(children: [
         SwitchListTile(
+          title: const Text('剪切板自动搜索'),
+          subtitle: const Text(
+            '启动或返回应用时读取剪切板并查询；仅识别 1—16 个连续汉字',
+          ),
+          value: settings.clipboardSearchEnabled,
+          onChanged: (value) => controller.setSettings(
+            (s) => s.copyWith(clipboardSearchEnabled: value),
+          ),
+        ),
+        const Divider(height: 1),
+        SwitchListTile(
             title: const Text('全局点击查字'),
             subtitle: const Text('开启后可点击正文汉字快速查询；设置页默认加入白名单，在此页点击汉字不会触发查询'),
             value: settings.globalHanLookupEnabled,
@@ -309,24 +347,10 @@ class SettingsPage extends ConsumerWidget {
                 .setSettings((s) => s.copyWith(reduceDecoration: value))),
         const Divider(height: 1),
         SwitchListTile(
-            title: const Text('左手模式'),
-            subtitle: const Text('将页面布局左右镜像，侧边栏和操作按钮移至另一侧'),
-            value: settings.leftHanded,
-            onChanged: (value) =>
-                controller.setSettings((s) => s.copyWith(leftHanded: value))),
-        const Divider(height: 1),
-        SwitchListTile(
             title: const Text('保留查询历史'),
             value: settings.keepSearchHistory,
             onChanged: (value) => controller
                 .setSettings((s) => s.copyWith(keepSearchHistory: value))),
-        const Divider(height: 1),
-        SwitchListTile(
-            title: const Text('清空后自动聚焦'),
-            subtitle: const Text('清空首页搜索框后自动打开键盘，方便立即输入下一次查询'),
-            value: settings.autofocusAfterClear,
-            onChanged: (value) => controller
-                .setSettings((s) => s.copyWith(autofocusAfterClear: value))),
       ])),
       const SizedBox(height: 16),
       Card(
@@ -346,6 +370,29 @@ class SettingsPage extends ConsumerWidget {
       const SizedBox(height: 20),
       OutlinedButton(
           onPressed: () => _reset(context, ref), child: const Text('恢复默认设置')),
+      const SizedBox(height: 24),
+      Card(
+        child: Column(children: [
+          SwitchListTile(
+            title: const Text('实验性功能'),
+            subtitle: const Text('开启后可以启用实验性功能'),
+            value: settings.experimentalFeaturesEnabled,
+            onChanged: (value) => controller.setSettings(
+              (s) => s.copyWith(experimentalFeaturesEnabled: value),
+            ),
+          ),
+          if (settings.experimentalFeaturesEnabled) ...[
+            const Divider(height: 1),
+            SwitchListTile(
+              title: const Text('左手模式'),
+              value: settings.leftHanded,
+              onChanged: (value) => controller.setSettings(
+                (s) => s.copyWith(leftHanded: value),
+              ),
+            ),
+          ],
+        ]),
+      ),
     ];
   }
 
@@ -469,7 +516,7 @@ class _SidebarWidthSettingState extends State<_SidebarWidthSetting> {
               onChanged: (value) => setState(() => _previewWidth = value),
               onCommitted: widget.onCommitted,
             ),
-            Text('应用于拼音、部首、笔画、难检字、韵脚和文化页面；页面内可临时隐藏。',
+            Text('页面内可临时隐藏。',
                 style: TextStyle(fontSize: 12, color: widget.muted)),
           ]),
         ),
@@ -502,9 +549,7 @@ class _SkinSettingsPanelState extends ConsumerState<_SkinSettingsPanel> {
                   : Icons.radio_button_unchecked,
             ),
             title: Text(spec.sourceSkin?.name ?? spec.id.label),
-            subtitle: Text(
-              '${spec.description}\n${spec.iconOverrides.isEmpty && spec.iconAssets.isEmpty ? '沿用默认图标' : '检测到 ${spec.iconOverrides.length + spec.iconAssets.length} 项图标覆盖'}',
-            ),
+            subtitle: _skinSubtitle(spec),
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               _ColorDot(spec.background),
               _ColorDot(spec.primary),
@@ -553,6 +598,23 @@ class _SkinSettingsPanelState extends ConsumerState<_SkinSettingsPanel> {
             color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
     ]);
+  }
+
+  Widget? _skinSubtitle(AppSkinSpec spec) {
+    final description = switch (spec.sourceSkin?.name) {
+      '松月夜读' => '深墨青夜间护眼皮肤，采用低亮度表面、暖灰文字与柔和玉绿选中态',
+      '鎏金墨玉·锦纹' => '暖宣纸纤维叠加淡墨玉云纹与稀疏金箔。',
+      _ => spec.sourceSkin?.description ?? spec.description,
+    };
+    // Skin metadata stays intact; hide only icon-related clauses in this list.
+    final text = RegExp(r'[^，,；;。\n]+[，,；;。\n]?')
+        .allMatches(description)
+        .map((match) => match.group(0)!)
+        .where((clause) => !clause.contains('图标'))
+        .join()
+        .trim()
+        .replaceFirst(RegExp(r'[，,；;]+$'), '');
+    return text.isEmpty ? null : Text(text);
   }
 
   bool _isSelected(AppSettings settings, AppSkinSpec spec) =>

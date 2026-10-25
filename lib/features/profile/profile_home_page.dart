@@ -20,6 +20,12 @@ class ProfilePage extends ConsumerWidget {
       'profile.settings'
     ),
     ('皮肤设置', Icons.palette_outlined, AppRoutes.settingsSkin, 'profile.skin'),
+    (
+      '悬浮球设置',
+      Icons.bubble_chart_outlined,
+      AppRoutes.settingsFloating,
+      'profile.floating'
+    ),
     ('查询历史', Icons.history, AppRoutes.history, 'profile.history'),
     ('更改诗词库', Icons.storage_outlined, AppRoutes.settingsData, 'profile.data'),
     ('使用帮助', Icons.help_outline, AppRoutes.informationHelp, 'profile.help'),

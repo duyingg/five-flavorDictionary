@@ -1,0 +1,96 @@
+{
+  "totalBytes": 3935692884,
+  "entries": [
+    {
+      "source": "D:\\ChatGPT\\wuwei_dictionary\\Aatime\\ACP-RAG-main",
+      "target": "D:\\ChatGPT\\dependence\\corpora\\ACP-RAG-main",
+      "kind": "Junction",
+      "bytes": 2941417,
+      "files": 27
+    },
+    {
+      "source": "D:\\ChatGPT\\wuwei_dictionary\\Aatime\\chinese-ancient-poetry-translation-master\\data",
+      "target": "D:\\ChatGPT\\dependence\\corpora\\chinese-ancient-poetry-translation-master\\data",
+      "kind": "Junction",
+      "bytes": 110157932,
+      "files": 72417
+    },
+    {
+      "source": "D:\\ChatGPT\\wuwei_dictionary\\Aatime\\chinese-ancient-poetry-translation-master\\output.csv",
+      "target": "D:\\ChatGPT\\dependence\\corpora\\chinese-ancient-poetry-translation-master\\output.csv",
+      "kind": "HardLink",
+      "bytes": 2314465,
+      "files": 1
+    },
+    {
+      "source": "D:\\ChatGPT\\wuwei_dictionary\\Aatime\\chinese-classical-corpus-main\\docs",
+      "target": "D:\\ChatGPT\\dependence\\corpora\\chinese-classical-corpus-main\\docs",
+      "kind": "Junction",
+      "bytes": 1459,
+      "files": 1
+    },
+    {
+      "source": "D:\\ChatGPT\\wuwei_dictionary\\Aatime\\chinese-classical-corpus-main\\output",
+      "target": "D:\\ChatGPT\\dependence\\corpora\\chinese-classical-corpus-main\\output",
+      "kind": "Junction",
+      "bytes": 169905732,
+      "files": 37
+    },
+    {
+      "source": "D:\\ChatGPT\\wuwei_dictionary\\Aatime\\chinese-classical-corpus-main\\scripts",
+      "target": "D:\\ChatGPT\\dependence\\corpora\\chinese-classical-corpus-main\\scripts",
+      "kind": "Junction",
+      "bytes": 96321,
+      "files": 20
+    },
+    {
+      "source": "D:\\ChatGPT\\wuwei_dictionary\\Aatime\\chinese-classical-corpus-main\\training",
+      "target": "D:\\ChatGPT\\dependence\\corpora\\chinese-classical-corpus-main\\training",
+      "kind": "Junction",
+      "bytes": 45748,
+      "files": 7
+    },
+    {
+      "source": "D:\\ChatGPT\\wuwei_dictionary\\Aatime\\Classical-Modern-data\\双语数据",
+      "target": "D:\\ChatGPT\\dependence\\corpora\\Classical-Modern-data\\双语数据",
+      "kind": "Junction",
+      "bytes": 350877389,
+      "files": 29216
+    },
+    {
+      "source": "D:\\ChatGPT\\wuwei_dictionary\\Aatime\\Classical-Modern-main.zip",
+      "target": "D:\\ChatGPT\\dependence\\downloads\\Classical-Modern-main.zip",
+      "kind": "HardLink",
+      "bytes": 302269130,
+      "files": 1
+    },
+    {
+      "source": "D:\\ChatGPT\\wuwei_dictionary\\Aatime\\rime-wubi\\wubi86.dict.yaml",
+      "target": "D:\\ChatGPT\\dependence\\corpora\\rime-wubi\\wubi86.dict.yaml",
+      "kind": "HardLink",
+      "bytes": 2289545,
+      "files": 1
+    },
+    {
+      "source": "D:\\ChatGPT\\wuwei_dictionary\\tool\\source_cache",
+      "target": "D:\\ChatGPT\\dependence\\cache\\web\\chinese-literature",
+      "kind": "Junction",
+      "bytes": 332679538,
+      "files": 3737
+    },
+    {
+      "source": "D:\\ChatGPT\\wuwei_dictionary\\.dart_tool\\flutter_build",
+      "target": "D:\\ChatGPT\\dependence\\cache\\projects\\wuwei_dictionary\\flutter_build",
+      "kind": "Junction",
+      "bytes": 2465005290,
+      "files": 1076
+    },
+    {
+      "source": "D:\\ChatGPT\\wuwei_dictionary\\android\\.gradle",
+      "target": "D:\\ChatGPT\\dependence\\cache\\projects\\wuwei_dictionary\\gradle",
+      "kind": "Junction",
+      "bytes": 197108918,
+      "files": 30
+    }
+  ]
+}

@@ -373,7 +373,7 @@ class _PoetryCard extends StatelessWidget {
                         ),
                     ]),
                     const SizedBox(height: 5),
-                    Text(preview,
+                    ParagraphText(preview,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(

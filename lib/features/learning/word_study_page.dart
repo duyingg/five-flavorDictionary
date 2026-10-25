@@ -260,23 +260,30 @@ class _WordStudyPageState extends ConsumerState<WordStudyPage> {
                             isThreeLine: true,
                             onTap: () =>
                                 context.push(AppRoutes.word(item.word)),
-                            trailing: IconButton(
-                              tooltip: favorites.contains(
-                                      FavoriteItem(FavoriteKind.word, item.word)
-                                          .storageKey)
-                                  ? '取消收藏词语'
-                                  : '收藏词语',
-                              onPressed: () => toggleFavoriteWithFeedback(
-                                  context,
-                                  ref,
-                                  FavoriteItem(FavoriteKind.word, item.word)
-                                      .storageKey),
-                              icon: Icon(favorites.contains(
-                                      FavoriteItem(FavoriteKind.word, item.word)
-                                          .storageKey)
-                                  ? Icons.star
-                                  : Icons.star_border),
-                            ),
+                            trailing: (ref
+                                        .watch(settingsControllerProvider)
+                                        .valueOrNull
+                                        ?.showFavorites ??
+                                    true)
+                                ? IconButton(
+                                    tooltip: favorites.contains(FavoriteItem(
+                                                FavoriteKind.word, item.word)
+                                            .storageKey)
+                                        ? '取消收藏词语'
+                                        : '收藏词语',
+                                    onPressed: () => toggleFavoriteWithFeedback(
+                                        context,
+                                        ref,
+                                        FavoriteItem(
+                                                FavoriteKind.word, item.word)
+                                            .storageKey),
+                                    icon: Icon(favorites.contains(FavoriteItem(
+                                                FavoriteKind.word, item.word)
+                                            .storageKey)
+                                        ? Icons.star
+                                        : Icons.star_border),
+                                  )
+                                : null,
                           ),
                         ),
                       if (items.length == _limit)
